@@ -121,9 +121,9 @@ const FinancialPanel = () => {
 
       {/* ── Revenue Summary ── */}
       <div className="bg-black/30 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-white/50 text-xs font-medium uppercase tracking-wider">May Revenue</span>
-          <span className="text-white/40 text-xs">/ {TARGET.toLocaleString()} RON</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-white/60 text-sm font-semibold">Revenue · Mai</span>
+          <span className="text-white/40 text-xs font-mono">target {TARGET.toLocaleString()} RON</span>
         </div>
 
         <div className="flex items-end gap-2 mb-3">
@@ -142,23 +142,23 @@ const FinancialPanel = () => {
             <div className="absolute top-0 h-full bg-amber-400/30 rounded-full transition-all duration-700" style={{ left: `${pct}%`, width: `${pctWithPending - pct}%` }} />
           )}
         </div>
-        <div className="flex justify-between text-[10px] text-white/30 mt-1">
-          <span>{pct}% collected</span>
-          {gap > 0 ? <span className="text-red-400/70">{gap.toLocaleString()} RON gap</span> : <span className="text-emerald-400">Target hit!</span>}
+        <div className="flex justify-between text-xs text-white/40 mt-1.5 font-medium">
+          <span>{pct}% colectat</span>
+          {gap > 0 ? <span className="text-red-400/80">{gap.toLocaleString()} RON gap</span> : <span className="text-emerald-400 font-semibold">Target atins!</span>}
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <div className="text-center bg-emerald-500/10 rounded-xl py-2 px-1 border border-emerald-500/20">
-            <div className="text-emerald-400 font-bold font-mono text-xs tabular-nums">{retainerFloor.toLocaleString()}</div>
-            <div className="text-white/40 text-[9px] mt-0.5">Retainers</div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="text-center bg-emerald-500/10 rounded-xl py-2.5 px-1 border border-emerald-500/20">
+            <div className="text-emerald-400 font-bold font-mono text-sm tabular-nums">{retainerFloor.toLocaleString()}</div>
+            <div className="text-white/50 text-[11px] mt-0.5">Retainers</div>
           </div>
-          <div className="text-center bg-amber-500/10 rounded-xl py-2 px-1 border border-amber-500/20">
-            <div className="text-amber-400 font-bold font-mono text-xs tabular-nums">{spotInvoiced.toLocaleString()}</div>
-            <div className="text-white/40 text-[9px] mt-0.5">Invoiced</div>
+          <div className="text-center bg-amber-500/10 rounded-xl py-2.5 px-1 border border-amber-500/20">
+            <div className="text-amber-400 font-bold font-mono text-sm tabular-nums">{spotInvoiced.toLocaleString()}</div>
+            <div className="text-white/50 text-[11px] mt-0.5">Invoiced</div>
           </div>
-          <div className="text-center bg-blue-500/10 rounded-xl py-2 px-1 border border-blue-500/20">
-            <div className="text-blue-400 font-bold font-mono text-xs tabular-nums">{spotPaid.toLocaleString()}</div>
-            <div className="text-white/40 text-[9px] mt-0.5">Spot Paid</div>
+          <div className="text-center bg-blue-500/10 rounded-xl py-2.5 px-1 border border-blue-500/20">
+            <div className="text-blue-400 font-bold font-mono text-sm tabular-nums">{spotPaid.toLocaleString()}</div>
+            <div className="text-white/50 text-[11px] mt-0.5">Spot Paid</div>
           </div>
         </div>
       </div>
@@ -173,7 +173,7 @@ const FinancialPanel = () => {
         <div className="grid grid-cols-3 gap-2 mb-3">
           {/* Balance */}
           <div className="text-center">
-            <div className="text-[9px] text-white/30 mb-1">Cont Firmă</div>
+            <div className="text-[11px] text-white/40 mb-1 font-medium">Cont Firmă</div>
             {editingBalance ? (
               <input
                 autoFocus
@@ -182,40 +182,40 @@ const FinancialPanel = () => {
                 onChange={e => setBalanceDraft(e.target.value)}
                 onBlur={saveBalance}
                 onKeyDown={e => e.key === 'Enter' && saveBalance()}
-                className="w-full text-center bg-transparent border-b border-white/20 text-white text-xs font-mono outline-none tabular-nums"
+                className="w-full text-center bg-transparent border-b border-white/20 text-white text-sm font-mono outline-none tabular-nums"
               />
             ) : (
               <button
                 onClick={() => { setBalanceDraft(String(balance)); setEditingBalance(true); }}
-                className="text-white font-bold font-mono text-sm tabular-nums hover:text-white/70 transition-colors"
+                className="text-white font-bold font-mono text-base tabular-nums hover:text-white/70 transition-colors"
               >
                 {balance.toLocaleString()}
               </button>
             )}
-            <div className="text-[8px] text-white/25 mt-0.5">RON · tap to edit</div>
+            <div className="text-[10px] text-white/30 mt-0.5">RON · tap edit</div>
           </div>
 
           {/* Monthly out */}
           <div className="text-center">
-            <div className="text-[9px] text-white/30 mb-1">Ieșiri / lună</div>
-            <div className="text-red-400 font-bold font-mono text-sm tabular-nums">{TOTAL_EXPENSES.toLocaleString()}</div>
-            <div className="text-[8px] text-white/25 mt-0.5">RON fix</div>
+            <div className="text-[11px] text-white/40 mb-1 font-medium">Ieșiri / lună</div>
+            <div className="text-red-400 font-bold font-mono text-base tabular-nums">{TOTAL_EXPENSES.toLocaleString()}</div>
+            <div className="text-[10px] text-white/30 mt-0.5">RON fix</div>
           </div>
 
           {/* Runway */}
           <div className="text-center">
-            <div className="text-[9px] text-white/30 mb-1">Runway</div>
-            <div className={`font-bold font-mono text-sm tabular-nums ${runwayColor}`}>{runwayDays}z</div>
-            <div className="text-[8px] text-white/25 mt-0.5">zile acoperite</div>
+            <div className="text-[11px] text-white/40 mb-1 font-medium">Runway</div>
+            <div className={`font-bold font-mono text-base tabular-nums ${runwayColor}`}>{runwayDays}z</div>
+            <div className="text-[10px] text-white/30 mt-0.5">zile acoperite</div>
           </div>
         </div>
 
         {/* Net if target hit */}
-        <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${netMonthly >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-          <span className="text-[10px] text-white/40">Net dacă target e atins</span>
-          <div className="flex items-center gap-1">
-            {netMonthly >= 0 ? <TrendingUp size={11} className="text-emerald-400" /> : <TrendingDown size={11} className="text-red-400" />}
-            <span className={`font-mono text-xs font-bold ${netMonthly >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${netMonthly >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+          <span className="text-xs text-white/50 font-medium">Net dacă target e atins</span>
+          <div className="flex items-center gap-1.5">
+            {netMonthly >= 0 ? <TrendingUp size={13} className="text-emerald-400" /> : <TrendingDown size={13} className="text-red-400" />}
+            <span className={`font-mono text-sm font-bold tabular-nums ${netMonthly >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {netMonthly >= 0 ? '+' : ''}{netMonthly.toLocaleString()} RON
             </span>
           </div>
@@ -228,26 +228,26 @@ const FinancialPanel = () => {
           onClick={() => setShowExpenses(!showExpenses)}
           className="w-full flex items-center justify-between px-4 py-3 text-white/50 hover:text-white/70 transition-colors"
         >
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider">Cheltuieli fixe lunare</span>
-            <span className="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-mono">{TOTAL_EXPENSES.toLocaleString()} RON</span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-semibold text-white/60">Cheltuieli fixe lunare</span>
+            <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-mono font-bold">{TOTAL_EXPENSES.toLocaleString()} RON</span>
           </div>
-          {showExpenses ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          {showExpenses ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
         {showExpenses && (
-          <div className="px-3 pb-3 space-y-1.5 border-t border-white/5 pt-2">
+          <div className="px-3 pb-3 space-y-1 border-t border-white/5 pt-2">
             {FIXED_EXPENSES.map(exp => (
-              <div key={exp.id} className="flex items-center justify-between py-1 px-2 rounded-xl hover:bg-white/3">
-                <span className="text-white/70 text-xs">{exp.name}</span>
-                <span className={`font-mono text-xs font-semibold tabular-nums ${CATEGORY_COLORS[exp.category]}`}>
+              <div key={exp.id} className="flex items-center justify-between py-1.5 px-2 rounded-xl hover:bg-white/5">
+                <span className="text-white/70 text-sm">{exp.name}</span>
+                <span className={`font-mono text-sm font-semibold tabular-nums ${CATEGORY_COLORS[exp.category]}`}>
                   {exp.amount.toLocaleString()} RON
                 </span>
               </div>
             ))}
-            <div className="border-t border-white/5 mt-2 pt-2 flex items-center justify-between px-2">
-              <span className="text-white/40 text-[10px] uppercase tracking-wider">Total</span>
-              <span className="text-red-400 font-mono text-sm font-bold tabular-nums">{TOTAL_EXPENSES.toLocaleString()} RON</span>
+            <div className="border-t border-white/8 mt-2 pt-2 flex items-center justify-between px-2">
+              <span className="text-white/50 text-xs font-semibold uppercase tracking-wider">Total</span>
+              <span className="text-red-400 font-mono text-base font-bold tabular-nums">{TOTAL_EXPENSES.toLocaleString()} RON</span>
             </div>
           </div>
         )}
@@ -255,7 +255,7 @@ const FinancialPanel = () => {
 
       {/* ── Retainer Clients ── */}
       <div className="space-y-1.5">
-        <div className="text-[10px] text-white/30 uppercase tracking-wider px-1">Retainers</div>
+        <div className="text-xs font-semibold text-white/40 uppercase tracking-wider px-1">Retainers</div>
         {financial.clients.map(c => (
           <div key={c.id} className="flex items-center justify-between bg-black/20 border border-emerald-500/20 rounded-xl px-3 py-2">
             <div>
@@ -273,7 +273,7 @@ const FinancialPanel = () => {
       {/* ── Spot Clients ── */}
       {(financial.spotClients || []).length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[10px] text-white/30 uppercase tracking-wider px-1">Spot / One-off</div>
+          <div className="text-xs font-semibold text-white/40 uppercase tracking-wider px-1">Spot / One-off</div>
           {financial.spotClients.map(c => (
             <div key={c.id} className={`flex items-center justify-between bg-black/20 rounded-xl px-3 py-2 group border ${c.status === 'paid' ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
               <div>

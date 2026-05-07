@@ -6,7 +6,7 @@ import BrainstormChat from './components/BrainstormChat';
 import VoiceOrb from './components/VoiceOrb';
 import DashboardView from './components/DashboardView';
 import LifeCalendar from './components/LifeCalendar';
-import { Plus, Sparkles, MessageCircle, Loader2, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, DollarSign } from 'lucide-react';
+import { Plus, Sparkles, MessageCircle, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, DollarSign } from 'lucide-react';
 import FinancialPanel from './components/FinancialPanel';
 import JarvisAgent from './components/JarvisAgent';
 import NotificationBanner from './components/NotificationBanner';
@@ -355,7 +355,7 @@ function App() {
 
   return (
     <>
-      <div className="relative min-h-[100dvh] w-full overflow-x-hidden pb-36 md:pb-10 font-sans transition-colors duration-1000 flex bg-[#0a0a0a]">
+      <div className="relative min-h-[100dvh] w-full overflow-x-hidden pb-[160px] md:pb-10 font-sans transition-colors duration-1000 flex bg-[#0a0a0a]">
         {/* Fixed Left Sidebar (Desktop Only) */}
         <aside className="hidden md:flex flex-col w-20 fixed left-0 top-0 bottom-0 bg-black/60 backdrop-blur-3xl border-r border-white/5 z-50 py-8 items-center justify-between">
           <div className="flex flex-col gap-6">
@@ -445,7 +445,7 @@ function App() {
         </aside>
 
         {/* Main Content Area */}
-        <div className={`flex-1 md:ml-20 flex flex-col min-h-screen px-4 pt-5 pb-10 md:py-16 relative transition-all duration-700 ${isCalendarOpen ? 'blur-[60px] opacity-30 scale-95' : 'blur-0 opacity-100 scale-100'}`}>
+        <div className={`flex-1 md:ml-20 flex flex-col min-h-screen px-3 md:px-4 pt-6 pb-10 md:py-16 relative transition-all duration-700 ${isCalendarOpen ? 'blur-[60px] opacity-30 scale-95' : 'blur-0 opacity-100 scale-100'}`}>
 
           {/* On-Set Studio Black */}
           <div className={`fixed inset-0 bg-black z-0 pointer-none-safeguard transition-opacity duration-1000 ${isOnSetMode ? 'opacity-100' : 'opacity-0'}`} />
@@ -457,11 +457,27 @@ function App() {
 
           <div className={`relative z-10 max-w-4xl mx-auto w-full`}>
             {(!isOnSetMode) && (
-              <header className="mb-6 md:mb-12 text-center md:text-left relative">
-                <h1 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60 drop-shadow-sm mb-0.5 md:mb-2 tracking-tight">
-                  Sergiu OS
-                </h1>
-                <p className="hidden md:block text-white/50 text-lg font-medium">Your whole life. At a glance.</p>
+              <header className="mb-4 md:mb-12">
+                {/* Mobile header: compact single row */}
+                <div className="flex items-center justify-between md:hidden">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.9)] flex-shrink-0" />
+                    <span className="text-lg font-bold text-white tracking-tight">Sergiu OS</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-white/5 border border-white/8 rounded-full px-2.5 py-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]" />
+                    <span className="text-white/50 text-[11px] font-medium">
+                      {new Date().toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                </div>
+                {/* Desktop header */}
+                <div className="hidden md:block">
+                  <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60 drop-shadow-sm tracking-tight">
+                    Sergiu OS
+                  </h1>
+                  <p className="text-white/50 text-lg font-medium mt-2">Your whole life. At a glance.</p>
+                </div>
               </header>
             )}
 
@@ -495,8 +511,8 @@ function App() {
 
             {/* MOBILE FINANCE VIEW */}
             {viewMode === 'finance' && (
-              <div className="md:hidden pb-4">
-                <h2 className="text-2xl font-bold text-white mb-4">Finance</h2>
+              <div className="md:hidden pb-4 animate-fade-in">
+                <h2 className="text-xl font-bold text-white mb-3">Finance</h2>
                 <GlassPanel>
                   <FinancialPanel />
                 </GlassPanel>
@@ -505,7 +521,7 @@ function App() {
 
             {/* DAY VIEW ANCHOR */}
             {(!isOnSetMode || !activeFocusTask) && (
-              <div id="day" className={`grid-cols-1 lg:grid-cols-3 gap-8 min-h-[80vh] ${viewMode === 'day' ? 'grid' : 'hidden md:grid'}`}>
+              <div id="day" className={`grid-cols-1 lg:grid-cols-3 gap-6 min-h-[80vh] ${viewMode === 'day' ? 'grid animate-fade-in' : 'hidden md:grid'}`}>
 
                 {/* Main Task List */}
                 <div className="lg:col-span-2 space-y-6">
@@ -516,13 +532,13 @@ function App() {
                   <StatusPanel activeTodosCount={activeCount} todos={todos} />
 
                   <GlassPanel>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-semibold text-white">Tasks</h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-bold text-white">Tasks</h2>
                       <button
                         onClick={() => openBrainstorm()}
-                        className="glass-pill flex items-center gap-2 hover:bg-blue-500/20 hover:border-blue-500/50"
+                        className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/25 text-blue-300 px-3 py-1.5 rounded-full text-sm font-medium transition-all active:bg-blue-500/25"
                       >
-                        <MessageCircle size={16} className="text-blue-300" />
+                        <MessageCircle size={14} className="text-blue-300" />
                         <span>Brainstorm</span>
                       </button>
                     </div>
@@ -803,15 +819,15 @@ function App() {
 
       {/* Mobile sticky input bar — only on Day view */}
       {viewMode === 'day' && (
-        <div className="md:hidden fixed left-0 right-0 z-[59] px-4 pb-2" style={{ bottom: 'calc(max(72px, 72px + env(safe-area-inset-bottom)))' }}>
+        <div className="md:hidden fixed left-4 right-4 z-[59]" style={{ bottom: 'calc(88px + max(0px, env(safe-area-inset-bottom)))' }}>
           <form onSubmit={handleAddTodo} className="relative">
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Add a task..."
-              className="glass-input w-full pr-14 shadow-2xl"
-              style={{ fontSize: '16px', padding: '14px 56px 14px 16px' }}
+              className="glass-input w-full shadow-2xl"
+              style={{ fontSize: '16px', padding: '14px 56px 14px 18px' }}
             />
             <button
               type="submit"
@@ -823,54 +839,74 @@ function App() {
         </div>
       )}
 
-      {/* Mobile Jarvis FAB — floats above tab bar center */}
+      {/* Mobile Jarvis FAB — centered floating button above tab pill */}
       <button
         onClick={() => setJarvisOpen(true)}
-        className="md:hidden fixed z-[65] left-1/2 -translate-x-1/2 w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-800 flex items-center justify-center shadow-[0_0_28px_rgba(139,92,246,0.7)] border border-violet-400/30 active:scale-95 transition-transform"
-        style={{ bottom: 'calc(max(16px, env(safe-area-inset-bottom)) + 34px)' }}
+        className="md:hidden fixed z-[65] left-1/2 -translate-x-1/2 w-[52px] h-[52px] rounded-2xl bg-gradient-to-br from-violet-500 to-purple-800 flex items-center justify-center shadow-[0_0_28px_rgba(139,92,246,0.65)] border border-violet-400/30 active:scale-90 transition-transform"
+        style={{ bottom: 'calc(max(0px, env(safe-area-inset-bottom)) + 68px)' }}
       >
-        <Sparkles size={22} className="text-white" />
+        <Sparkles size={20} className="text-white" />
       </button>
 
-      {/* Mobile Bottom TabBar — 4 items flanking the center FAB */}
+      {/* Mobile Bottom Tab Bar — floating pill, centered, clean */}
       <div
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 z-[60] grid grid-cols-5"
-        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+        className="md:hidden fixed left-1/2 -translate-x-1/2 z-[60]"
+        style={{ bottom: 'calc(max(16px, env(safe-area-inset-bottom) + 8px))' }}
       >
-        <button
-          onClick={() => { setViewMode('day'); setActiveProjectId(null); }}
-          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40'}`}
-        >
-          <List size={20} />
-          <span className="text-[9px] font-medium">Day</span>
-        </button>
-        <button
-          onClick={() => setViewMode('projects')}
-          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40'}`}
-        >
-          <LayoutGrid size={20} />
-          <span className="text-[9px] font-medium">Capsules</span>
-        </button>
+        <div className="flex items-center gap-1 bg-[#141414]/95 backdrop-blur-2xl border border-white/10 rounded-[26px] px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
 
-        {/* Empty center slot for FAB */}
-        <div className="flex flex-col items-center justify-end pb-1">
-          <span className="text-[9px] font-bold text-violet-400">Jarvis</span>
+          <button
+            onClick={() => { setViewMode('day'); setActiveProjectId(null); }}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-[18px] transition-all duration-200 min-w-[56px] ${
+              viewMode === 'day'
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'text-white/40 active:bg-white/8'
+            }`}
+          >
+            <List size={18} strokeWidth={viewMode === 'day' ? 2.5 : 1.8} />
+            <span className="text-[10px] font-medium leading-none">Day</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('projects')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-[18px] transition-all duration-200 min-w-[56px] ${
+              viewMode === 'projects'
+                ? 'bg-purple-500/20 text-purple-400'
+                : 'text-white/40 active:bg-white/8'
+            }`}
+          >
+            <LayoutGrid size={18} strokeWidth={viewMode === 'projects' ? 2.5 : 1.8} />
+            <span className="text-[10px] font-medium leading-none">Projects</span>
+          </button>
+
+          {/* Center gap for FAB */}
+          <div className="w-[52px]" />
+
+          <button
+            onClick={() => setViewMode('finance')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-[18px] transition-all duration-200 min-w-[56px] ${
+              viewMode === 'finance'
+                ? 'bg-emerald-500/20 text-emerald-400'
+                : 'text-white/40 active:bg-white/8'
+            }`}
+          >
+            <DollarSign size={18} strokeWidth={viewMode === 'finance' ? 2.5 : 1.8} />
+            <span className="text-[10px] font-medium leading-none">Finance</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('dashboard')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-[18px] transition-all duration-200 min-w-[56px] ${
+              viewMode === 'dashboard'
+                ? 'bg-amber-500/20 text-amber-400'
+                : 'text-white/40 active:bg-white/8'
+            }`}
+          >
+            <Calendar size={18} strokeWidth={viewMode === 'dashboard' ? 2.5 : 1.8} />
+            <span className="text-[10px] font-medium leading-none">Timeline</span>
+          </button>
+
         </div>
-
-        <button
-          onClick={() => setViewMode('finance')}
-          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'finance' ? 'text-emerald-400' : 'text-white/40'}`}
-        >
-          <DollarSign size={20} />
-          <span className="text-[9px] font-medium">Finance</span>
-        </button>
-        <button
-          onClick={() => setViewMode('dashboard')}
-          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'dashboard' ? 'text-amber-400' : 'text-white/40'}`}
-        >
-          <Calendar size={20} />
-          <span className="text-[9px] font-medium">Timeline</span>
-        </button>
       </div>
     </>
   );

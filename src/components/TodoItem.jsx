@@ -83,8 +83,8 @@ const TodoItem = ({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 animate={controls}
-                className={`relative flex items-center justify-between p-4 rounded-2xl border transition-all duration-500 ${isSubtask
-                    ? 'ml-8 bg-[#1a1a1a]/80 border-white/5 backdrop-blur-sm'
+                className={`relative flex items-center justify-between px-3 py-3 rounded-2xl border transition-all duration-500 ${isSubtask
+                    ? 'ml-6 bg-[#1a1a1a]/80 border-white/5 backdrop-blur-sm'
                     : 'bg-[#121212]/90 border-white/10 backdrop-blur-xl'
                     } ${todo.completed
                         ? 'opacity-40 scale-[0.98] blur-[2px] z-0'
@@ -99,58 +99,64 @@ const TodoItem = ({
                                         : 'hover:bg-white/10 shadow-sm opacity-70 blur-[1px] hover:blur-none hover:opacity-100 z-10 scale-[0.99]'
                     }`}
             >
-                <div className="flex items-center gap-3 flex-1 px-2">
+                <div className="flex items-start gap-2.5 flex-1">
                     <button
                         onClick={() => toggleTodo(todo.id)}
-                        className={`transition-colors duration-300 flex-shrink-0 ${todo.completed ? 'text-green-400' : 'text-white/70 hover:text-white'}`}
+                        className={`transition-colors duration-300 flex-shrink-0 mt-0.5 ${todo.completed ? 'text-green-400' : 'text-white/50 hover:text-white'}`}
                     >
-                        {todo.completed ? <CheckCircle2 size={isSubtask ? 20 : 24} /> : <Circle size={isSubtask ? 20 : 24} />}
+                        {todo.completed ? <CheckCircle2 size={isSubtask ? 18 : 20} /> : <Circle size={isSubtask ? 18 : 20} />}
                     </button>
 
-                    <div className="flex flex-col flex-1 pl-1">
-                        <span className={`${isSubtask ? 'text-sm' : 'text-base font-medium'} transition-all duration-300 ${todo.completed ? 'line-through text-white/40' : 'text-white/90'}`}>
+                    <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`${isSubtask ? 'text-sm' : 'text-[15px] font-medium'} leading-snug transition-all duration-300 ${todo.completed ? 'line-through text-white/40' : 'text-white/90'}`}>
                             {todo.text}
                         </span>
 
-                        {/* Focus, Tags, and Stages UI underneath text */}
+                        {/* Action row — deadline badge + action buttons */}
                         {!todo.completed && !isSubtask && (
-                            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs opacity-100">
+                            <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
                                 {isDeadlineMode && (
-                                    <div className="flex items-center gap-1 font-medium text-red-400 animate-pulse">
-                                        <Clock size={12} />
-                                        <span>19:00</span>
+                                    <div className="flex items-center gap-1 text-red-400 animate-pulse bg-red-500/10 px-2 py-1 rounded-lg">
+                                        <Clock size={11} />
+                                        <span className="text-xs font-semibold">19:00</span>
                                     </div>
                                 )}
 
                                 {/* Focus Button */}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onStartFocus(todo); }}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 text-white/50 active:bg-amber-400/20 active:text-amber-400 transition-colors min-h-[44px]"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 text-white/50 active:bg-amber-400/20 active:text-amber-400 transition-colors"
                                 >
-                                    <Target size={13} /> Focus
+                                    <Target size={12} />
+                                    <span className="text-xs font-medium">Focus</span>
                                 </button>
 
                                 {/* Energy toggle */}
                                 <button
                                     onClick={handleEnergyToggle}
-                                    className={`flex items-center justify-center w-11 h-11 rounded-lg transition-all ${todo.energy === 'high'
-                                        ? 'bg-red-500/20 text-red-400'
-                                        : todo.energy === 'low'
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : 'bg-white/5 text-white/30'
-                                        }`}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
+                                        todo.energy === 'high'
+                                            ? 'bg-red-500/20 text-red-400'
+                                            : todo.energy === 'low'
+                                                ? 'bg-green-500/20 text-green-400'
+                                                : 'bg-white/5 text-white/30'
+                                    }`}
                                     title={todo.energy === 'high' ? 'High Energy' : todo.energy === 'low' ? 'Low Energy' : 'Set Energy'}
                                 >
-                                    <div className={`w-3 h-3 rounded-full ${todo.energy === 'high' ? 'bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : todo.energy === 'low' ? 'bg-green-400' : 'bg-white/20'}`} />
+                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${todo.energy === 'high' ? 'bg-red-400 shadow-[0_0_6px_rgba(239,68,68,0.9)]' : todo.energy === 'low' ? 'bg-green-400' : 'bg-white/25'}`} />
+                                    <span className="text-xs font-medium">
+                                        {todo.energy === 'high' ? 'High' : todo.energy === 'low' ? 'Low' : 'Energy'}
+                                    </span>
                                 </button>
 
                                 {/* Stage Icon Toggle */}
                                 <button
                                     onClick={cycleStage}
-                                    className="flex items-center justify-center w-11 h-11 rounded-lg bg-white/5 active:bg-white/20 transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 active:bg-white/15 transition-colors"
                                     title={`Stage: ${todo.stage || 'Idea'}`}
                                 >
                                     <StageIcon />
+                                    <span className="text-xs text-white/50 font-medium">{todo.stage || 'Idea'}</span>
                                 </button>
 
                                 {todo.stage === 'In Production' && (
@@ -159,9 +165,9 @@ const TodoItem = ({
                                             e.stopPropagation();
                                             if (onBrainstorm) onBrainstorm(`🎬 Generate a shooting scene breakdown for production: "${todo.text}"`);
                                         }}
-                                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 active:bg-purple-500/30 transition-colors font-medium text-[10px] uppercase tracking-wider min-h-[32px]"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 active:bg-purple-500/30 transition-colors"
                                     >
-                                        🎬 Scenes
+                                        <span className="text-xs font-semibold">🎬 Scenes</span>
                                     </button>
                                 )}
                             </div>

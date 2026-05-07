@@ -36,10 +36,26 @@
   }
 
   .glass-input {
-    @apply bg-black/10 border border-white/20 text-white placeholder:text-white/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/30 backdrop-blur-md transition-all;
+    @apply bg-black/20 border border-white/15 text-white placeholder:text-white/40 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/20 backdrop-blur-md transition-all;
   }
 
   .glass-pill {
     @apply px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-md text-sm font-medium shadow-sm transition-all duration-300;
+  }
+
+  /* Fade-in animation used across views */
+  .animate-fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Safe tap target helper */
+  .tap-target {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
