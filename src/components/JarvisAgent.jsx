@@ -1,9 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Send, Loader2 } from 'lucide-react';
+import { X, Sparkles, Send, Loader2, Brain, Trash2 } from 'lucide-react';
 import Groq from 'groq-sdk';
 import NotificationManager from '../utils/NotificationManager';
 
 const MODEL = 'llama-3.3-70b-versatile';
+
+// ── Persistence keys ──
+const LS_MESSAGES = 'jarvis_messages';
+const LS_HISTORY  = 'jarvis_api_history';
+const LS_MEMORY   = 'jarvis_memory';
+
+const loadMessages = () => { try { return JSON.parse(localStorage.getItem(LS_MESSAGES)) || []; } catch { return []; } };
+const loadHistory  = () => { try { return JSON.parse(localStorage.getItem(LS_HISTORY))  || []; } catch { return []; } };
+const loadMemory   = () => { try { return localStorage.getItem(LS_MEMORY) || ''; }          catch { return ''; } };
+
+const saveMessages = (msgs) => { try { localStorage.setItem(LS_MESSAGES, JSON.stringify(msgs)); } catch {} };
+const saveHistory  = (hist) => { try { localStorage.setItem(LS_HISTORY,  JSON.stringify(hist.slice(-40))); } catch {} };
+const saveMemory   = (mem)  => { try { localStorage.setItem(LS_MEMORY, mem); }                catch {} };
 
 const TOOLS = [
   {
@@ -14,10 +27,10 @@ const TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          text: { type: 'string', description: 'Task text' },
-          energy: { type: 'string', description: '"high", "low", or omit' },
+          text:      { type: 'string', description: 'Task text' },
+          energy:    { type: 'string', description: '"high", "low", or omit' },
           projectId: { type: 'string', description: 'Client/project name' },
-          stage: { type: 'string', description: 'Idea | Development | In Production | Paid/Wrapped' }
+          stage:     { type: 'string', description: 'Idea | Development | In Production | Paid/Wrapped' }
         },
         required: ['text']
       }
@@ -28,13 +41,7 @@ const TOOLS = [
     function: {
       name: 'complete_task',
       description: 'Mark a task as completed',
-      parameters: {
-        type: 'object',
-        properties: {
-          taskId: { type: 'number', description: 'Numeric task ID' }
-        },
-        required: ['taskId']
-      }
+      parameters: { type: 'object', properties: { taskId: { type: 'number' } }, required: ['taskId'] }
     }
   },
   {
@@ -42,11 +49,7 @@ const TOOLS = [
     function: {
       name: 'delete_task',
       description: 'Delete a task permanently',
-      parameters: {
-        type: 'object',
-        properties: { taskId: { type: 'number' } },
-        required: ['taskId']
-      }
+      parameters: { type: 'object', properties: { taskId: { type: 'number' } }, required: ['taskId'] }
     }
   },
   {
@@ -56,10 +59,7 @@ const TOOLS = [
       description: 'Set energy level of a task',
       parameters: {
         type: 'object',
-        properties: {
-          taskId: { type: 'number' },
-          energy: { type: 'string', description: '"high", "low", or "none"' }
-        },
+        properties: { taskId: { type: 'number' }, energy: { type: 'string', description: '"high", "low", or "none"' } },
         required: ['taskId', 'energy']
       }
     }
@@ -71,10 +71,7 @@ const TOOLS = [
       description: 'Set the stage of a task',
       parameters: {
         type: 'object',
-        properties: {
-          taskId: { type: 'number' },
-          stage: { type: 'string' }
-        },
+        properties: { taskId: { type: 'number' }, stage: { type: 'string' } },
         required: ['taskId', 'stage']
       }
     }
@@ -87,7 +84,7 @@ const TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string' },
+          name:   { type: 'string' },
           amount: { type: 'number', description: 'Amount in RON' },
           status: { type: 'string', description: '"invoiced" or "paid"' }
         },
@@ -100,11 +97,7 @@ const TOOLS = [
     function: {
       name: 'mark_invoice_paid',
       description: 'Mark a spot client invoice as paid by client name',
-      parameters: {
-        type: 'object',
-        properties: { clientName: { type: 'string' } },
-        required: ['clientName']
-      }
+      parameters: { type: 'object', properties: { clientName: { type: 'string' } }, required: ['clientName'] }
     }
   },
   {
@@ -115,32 +108,45 @@ const TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          title: { type: 'string' },
-          body: { type: 'string' },
+          title:          { type: 'string' },
+          body:           { type: 'string' },
           minutesFromNow: { type: 'number' }
         },
         required: ['title', 'body', 'minutesFromNow']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'save_memory',
+      description: 'Save a fact, preference, or pattern about Sergiu to long-term memory. Use proactively when you learn something worth remembering across sessions.',
+      parameters: {
+        type: 'object',
+        properties: { fact: { type: 'string', description: 'Concise fact to remember permanently' } },
+        required: ['fact']
       }
     }
   }
 ];
 
 const ACTION_LABELS = {
-  add_task: '+ task added',
-  complete_task: '✓ completed',
-  delete_task: '× deleted',
+  add_task:        '+ task added',
+  complete_task:   '✓ completed',
+  delete_task:     '× deleted',
   set_task_energy: '⚡ energy set',
-  set_task_stage: '◈ stage updated',
-  add_invoice: '$ invoice added',
+  set_task_stage:  '◈ stage updated',
+  add_invoice:     '$ invoice added',
   mark_invoice_paid: '$ marked paid',
-  schedule_reminder: '🔔 reminder set'
+  schedule_reminder: '🔔 reminder set',
+  save_memory:     '🧠 memory saved',
 };
 
 const QUICK_PROMPTS = [
   'Morning briefing',
   'What should I do first?',
   'How close am I to target?',
-  "What's still invoiced?",
+  "What do you know about me?",
 ];
 
 const getFinancial = () => {
@@ -159,13 +165,18 @@ function buildSystemPrompt(todos) {
   ).join('\n') || 'none';
 
   const fin = getFinancial();
-  const retainerTotal = (fin.clients || []).reduce((s, c) => s + c.amount, 0);
-  const spotPaid = (fin.spotClients || []).filter(c => c.status === 'paid').reduce((s, c) => s + c.amount, 0);
-  const spotInvoiced = (fin.spotClients || []).filter(c => c.status === 'invoiced').reduce((s, c) => s + c.amount, 0);
-  const collected = retainerTotal + spotPaid;
-  const gap = Math.max(0, 20000 - collected - spotInvoiced);
-  const invoicesStr = (fin.spotClients || []).map(c => `  ${c.name}: ${c.amount} RON (${c.status})`).join('\n') || '  none';
-  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const retainerTotal  = (fin.clients || []).reduce((s, c) => s + c.amount, 0);
+  const spotPaid       = (fin.spotClients || []).filter(c => c.status === 'paid').reduce((s, c) => s + c.amount, 0);
+  const spotInvoiced   = (fin.spotClients || []).filter(c => c.status === 'invoiced').reduce((s, c) => s + c.amount, 0);
+  const collected      = retainerTotal + spotPaid;
+  const gap            = Math.max(0, 20000 - collected - spotInvoiced);
+  const invoicesStr    = (fin.spotClients || []).map(c => `  ${c.name}: ${c.amount} RON (${c.status})`).join('\n') || '  none';
+  const today          = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const memory = loadMemory();
+  const memorySection = memory
+    ? `\nLONG-TERM MEMORY (facts you've learned about Sergiu across sessions):\n${memory}\n`
+    : '';
 
   return `You are Jarvis — Sergiu's personal AI chief of staff. He runs a video production business in Romania (UGC, corporate video, events).
 
@@ -182,23 +193,32 @@ FINANCES — May target: 20,000 RON:
 - Gap to target: ${gap.toLocaleString()} RON
 Invoices:
 ${invoicesStr}
-
+${memorySection}
 RULES:
 - Be direct. No fluff. Max 3 sentences unless doing a briefing.
 - When asked to do something — use the tools, do it, confirm in one line.
 - Morning briefing format: 1) Finance status 2) Top 3 tasks by priority 3) One risk or flag.
 - Mix Romanian naturally (RON, ora, filmare, editare, etc.) when Sergiu does.
-- High energy = cognitively demanding creative work. Low = admin, calls, pickups.`;
+- High energy = cognitively demanding creative work. Low = admin, calls, pickups.
+- MEMORY TOOL: Proactively call save_memory when you learn preferences, patterns, or recurring context worth keeping. Examples: usual pickup time, preferred work hours, client relationships, recurring blockers.`;
 }
 
 const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => loadMessages());
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const historyRef = useRef([]); // OpenAI-style message history
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+  const [showMemory, setShowMemory] = useState(false);
+  const [memory, setMemory] = useState(() => loadMemory());
+  const historyRef = useRef(loadHistory());
+  const bottomRef  = useRef(null);
+  const inputRef   = useRef(null);
 
+  // Persist messages whenever they change
+  useEffect(() => {
+    if (messages.length > 0) saveMessages(messages);
+  }, [messages]);
+
+  // Show welcome only if no saved history
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([{ role: 'assistant', text: 'Jarvis online. What do you need?' }]);
@@ -260,8 +280,14 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
         return { success: true };
       }
       case 'schedule_reminder': {
-        const tag = `jarvis-reminder-${Date.now()}`;
-        NotificationManager.scheduleCustom(args.title, args.body, args.minutesFromNow, tag);
+        NotificationManager.scheduleCustom(args.title, args.body, args.minutesFromNow, `jarvis-${Date.now()}`);
+        return { success: true };
+      }
+      case 'save_memory': {
+        const current = loadMemory();
+        const updated = current ? current + '\n- ' + args.fact : '- ' + args.fact;
+        saveMemory(updated);
+        setMemory(updated);
         return { success: true };
       }
       default:
@@ -275,6 +301,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
 
     const userMsg = { role: 'user', content: text };
     historyRef.current = [...historyRef.current, userMsg];
+    saveHistory(historyRef.current);
     setMessages(prev => [...prev, { role: 'user', text }]);
     setIsLoading(true);
 
@@ -286,10 +313,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
 
       const response = await groq.chat.completions.create({
         model: MODEL,
-        messages: [
-          { role: 'system', content: buildSystemPrompt(todos) },
-          ...historyRef.current
-        ],
+        messages: [{ role: 'system', content: buildSystemPrompt(todos) }, ...historyRef.current],
         tools: TOOLS,
         tool_choice: 'auto',
         max_tokens: 1024
@@ -298,7 +322,6 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
       const assistantMsg = response.choices[0].message;
       historyRef.current = [...historyRef.current, assistantMsg];
 
-      // Handle tool calls
       if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
         const actions = [];
         const toolMessages = [];
@@ -307,29 +330,25 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
           const args = JSON.parse(toolCall.function.arguments);
           const result = executeTool(toolCall.function.name, args);
           actions.push({ name: toolCall.function.name });
-          toolMessages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result)
-          });
+          toolMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
         }
 
         historyRef.current = [...historyRef.current, ...toolMessages];
+        saveHistory(historyRef.current);
 
-        // Get final response after tool execution
         const followUp = await groq.chat.completions.create({
           model: MODEL,
-          messages: [
-            { role: 'system', content: buildSystemPrompt(todos) },
-            ...historyRef.current
-          ],
+          messages: [{ role: 'system', content: buildSystemPrompt(todos) }, ...historyRef.current],
           max_tokens: 512
         });
 
         const finalText = followUp.choices[0].message.content;
         historyRef.current = [...historyRef.current, { role: 'assistant', content: finalText }];
+        saveHistory(historyRef.current);
         setMessages(prev => [...prev, { role: 'assistant', text: finalText, actions }]);
       } else {
+        historyRef.current = [...historyRef.current, { role: 'assistant', content: assistantMsg.content }];
+        saveHistory(historyRef.current);
         setMessages(prev => [...prev, { role: 'assistant', text: assistantMsg.content }]);
       }
     } catch (e) {
@@ -339,9 +358,14 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
     }
   };
 
-  const triggerBriefing = () => {
+  const triggerBriefing = () => send('Morning briefing. Go.');
+
+  const clearHistory = () => {
+    const fresh = [{ role: 'assistant', text: 'History cleared. Memory intact. What do you need?' }];
+    setMessages(fresh);
     historyRef.current = [];
-    send('Morning briefing. Go.');
+    saveMessages(fresh);
+    saveHistory([]);
   };
 
   if (!isOpen) return null;
@@ -357,10 +381,12 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
           </div>
           <div>
             <div className="text-white font-semibold text-sm leading-none">Jarvis</div>
-            <div className="text-white/30 text-[10px] mt-0.5">Llama 3.3 70B · {todos.filter(t => !t.completed).length} tasks in context</div>
+            <div className="text-white/30 text-[10px] mt-0.5">
+              {messages.length > 1 ? `${messages.length - 1} messages · ` : ''}{todos.filter(t => !t.completed).length} tasks · {memory ? memory.split('\n').filter(Boolean).length + ' memories' : 'no memories yet'}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={triggerBriefing}
             disabled={isLoading}
@@ -368,11 +394,51 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
           >
             ☀️ Briefing
           </button>
+          <button
+            onClick={() => setShowMemory(!showMemory)}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${showMemory ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 active:bg-white/10'}`}
+            title="View memory"
+          >
+            <Brain size={16} />
+          </button>
+          <button
+            onClick={clearHistory}
+            className="w-9 h-9 flex items-center justify-center text-white/20 active:text-red-400 rounded-xl active:bg-red-500/10 transition-colors"
+            title="Clear chat history (keeps memory)"
+          >
+            <Trash2 size={15} />
+          </button>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center text-white/40 active:text-white rounded-xl active:bg-white/10">
             <X size={20} />
           </button>
         </div>
       </div>
+
+      {/* Memory Panel */}
+      {showMemory && (
+        <div className="bg-[#0d0d18] border-b border-violet-500/20 px-4 py-3 max-h-48 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-violet-400 text-[10px] font-semibold uppercase tracking-wider">🧠 Long-term Memory</span>
+            {memory && (
+              <button
+                onClick={() => { saveMemory(''); setMemory(''); }}
+                className="text-[9px] text-red-400/60 hover:text-red-400 transition-colors"
+              >
+                Clear memory
+              </button>
+            )}
+          </div>
+          {memory ? (
+            <div className="space-y-1">
+              {memory.split('\n').filter(Boolean).map((line, i) => (
+                <div key={i} className="text-white/50 text-xs leading-relaxed">{line}</div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-white/20 text-xs">No memories yet. The more you use Jarvis, the more he learns about you.</div>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
@@ -421,7 +487,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
       </div>
 
       {/* Input */}
-      <div className="px-4 pt-2 pb-6 border-t border-white/8 mt-2"
+      <div className="px-4 pt-2 mt-2 border-t border-white/8"
         style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
         <div className="flex gap-2">
           <input
