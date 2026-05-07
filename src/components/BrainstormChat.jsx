@@ -49,7 +49,7 @@ const tools = [
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || 'MISSING_KEY');
 const model = genAI.getGenerativeModel({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     tools: tools,
     systemInstruction: "You are Jarvis, a proactive assistant inside an ADHD Pomodoro Todo app. You can use tools to create folders, search files, and implement plans. When the user says 'Implement this', use the 'implement_plan' tool to bulk-create the tasks on their timeline! Format nicely with markdown."
 });

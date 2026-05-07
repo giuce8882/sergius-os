@@ -8,13 +8,14 @@ import DashboardView from './components/DashboardView';
 import LifeCalendar from './components/LifeCalendar';
 import { Plus, Sparkles, MessageCircle, Loader2, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, FileJson, DollarSign } from 'lucide-react';
 import FinancialPanel from './components/FinancialPanel';
+import JarvisAgent from './components/JarvisAgent';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import audioEngine from './utils/AudioEngine';
 
 // --- SECURITY BRIEF ---
 // DATA SENT: The prompt sends ONLY the literal string of the specific task to the API 
 // to be broken down. No PII, full lists, or other context is included.
-// URL HIT: https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent
+// URL HIT: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
 // ----------------------
 
 const DEFAULT_TASKS = [
@@ -55,6 +56,7 @@ function App() {
   const [isMuted, setIsMuted] = useState(audioEngine.isMuted);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [rightPanel, setRightPanel] = useState('time'); // 'time' | 'finance'
+  const [jarvisOpen, setJarvisOpen] = useState(false);
 
   // View Toggle (Day vs Projects vs Dashboard)
   const [viewMode, setViewMode] = useState('day'); // 'day' | 'projects' | 'dashboard'
@@ -199,7 +201,7 @@ function App() {
   const extractProjectIdAsync = async (taskId, text) => {
     try {
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const currentProjects = activeProjects.filter(p => p !== 'General').join(', ');
       const prompt = `Classify this task into a short 'Project Name' (1-2 words). Here are active projects: [${currentProjects}]. Use one if it fits, or invent a catchy, highly relevant new one. Never use 'General' or 'Misc'. Return NOTHING ELSE. Task: "${text}"`;
       const result = await model.generateContent(prompt);
@@ -220,7 +222,7 @@ function App() {
   const handleAiOverlapCheck = async (taskText, oldHour, newHour) => {
     try {
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
       const scheduledTasksStr = todos.filter(t => t.hour !== null).map(t => `"${t.text}" at hour ${t.hour}`).join(', ');
 
@@ -322,7 +324,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         systemInstruction: "You are a helpful assistant. Return ONLY a valid JSON list of strings."
       });
 
@@ -382,10 +384,18 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
           <div className="flex flex-col gap-6">
             <button
               onClick={() => setIsChatOpen(true)}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] mb-4 hover:scale-105 transition-transform cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] mb-2 hover:scale-105 transition-transform cursor-pointer"
               title="Brainstorm Assistant"
             >
               <Sparkles size={20} className="text-white" />
+            </button>
+
+            <button
+              onClick={() => setJarvisOpen(true)}
+              className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-900 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.5)] mb-4 hover:scale-105 transition-transform cursor-pointer border border-violet-400/20"
+              title="Jarvis AI Agent"
+            >
+              <span className="text-white text-sm font-bold">J</span>
             </button>
 
             {/* Dry Run Button for Monday Briefing */}
@@ -789,6 +799,14 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
         activeProjectId={activeProjectId} // Pass project capsule context down
       />
 
+      {/* Jarvis Agent */}
+      <JarvisAgent
+        isOpen={jarvisOpen}
+        onClose={() => setJarvisOpen(false)}
+        todos={todos}
+        setTodos={setTodos}
+      />
+
       {/* Voice Orb */}
       <VoiceOrb
         activeProjectId={activeProjectId}
@@ -837,34 +855,46 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
       )}
 
       {/* Mobile Bottom TabBar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around py-3 pb-safe" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around py-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
         <button
           onClick={() => { setViewMode('day'); setActiveProjectId(null); }}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40'}`}
         >
-          <List size={22} />
-          <span className="text-[10px] font-medium">Day</span>
+          <List size={20} />
+          <span className="text-[9px] font-medium">Day</span>
         </button>
         <button
           onClick={() => setViewMode('projects')}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40'}`}
         >
-          <LayoutGrid size={22} />
-          <span className="text-[10px] font-medium">Capsules</span>
+          <LayoutGrid size={20} />
+          <span className="text-[9px] font-medium">Capsules</span>
         </button>
+
+        {/* Jarvis — center FAB */}
+        <button
+          onClick={() => setJarvisOpen(true)}
+          className="flex flex-col items-center gap-0.5 -mt-4 px-2"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-800 flex items-center justify-center shadow-[0_0_24px_rgba(139,92,246,0.6)] border border-violet-400/30 active:scale-95 transition-transform">
+            <Sparkles size={22} className="text-white" />
+          </div>
+          <span className="text-[9px] font-bold text-violet-400 mt-0.5">Jarvis</span>
+        </button>
+
         <button
           onClick={() => setViewMode('finance')}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'finance' ? 'text-emerald-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'finance' ? 'text-emerald-400' : 'text-white/40'}`}
         >
-          <DollarSign size={22} />
-          <span className="text-[10px] font-medium">Finance</span>
+          <DollarSign size={20} />
+          <span className="text-[9px] font-medium">Finance</span>
         </button>
         <button
           onClick={() => setViewMode('dashboard')}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'dashboard' ? 'text-amber-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'dashboard' ? 'text-amber-400' : 'text-white/40'}`}
         >
-          <Calendar size={22} />
-          <span className="text-[10px] font-medium">Timeline</span>
+          <Calendar size={20} />
+          <span className="text-[9px] font-medium">Timeline</span>
         </button>
       </div>
     </>
