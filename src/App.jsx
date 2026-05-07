@@ -745,8 +745,8 @@ function App() {
         taskTarget={focusedTaskText}
         todos={todos}
         setTodos={setTodos}
-        extractProjectIdAsync={extractProjectIdAsync}
-        activeProjectId={activeProjectId} // Pass project capsule context down
+        financial={financial}
+        onToolExecuted={handleJarvisAction}
       />
 
       {/* Jarvis Agent */}

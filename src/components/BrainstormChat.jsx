@@ -1,405 +1,389 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, X, Sparkles, Send, Loader2, ShieldCheck, Save, History, FileJson } from 'lucide-react';
+import { X, Sparkles, Send, Loader2, Zap } from 'lucide-react';
 import Groq from 'groq-sdk';
 
-const SYSTEM_PROMPT = "You are Jarvis, a proactive assistant inside an ADHD Pomodoro Todo app. You can use tools to create folders, search files, and implement plans. When the user says 'Implement this', use the 'implement_plan' tool to bulk-create the tasks on their timeline! Format nicely with markdown.";
+const MODEL = 'llama-3.3-70b-versatile';
 
-const tools = [
-    {
-        type: 'function',
-        function: {
-            name: 'create_folder',
-            description: "Creates a new folder in the user's local directory for organizing project files.",
-            parameters: { type: 'object', properties: { folderName: { type: 'string' } }, required: ['folderName'] }
-        }
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'search_local_files',
-            description: "Searches the user's local directory for files matching a query.",
-            parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-        }
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'implement_plan',
-            description: "Takes a brainstormed plan and injects it as real tasks into the user's Todo app timeline. Use this when the user says 'Implement this' or asks to save the plan.",
-            parameters: {
-                type: 'object',
-                properties: {
-                    tasks: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                text: { type: 'string', description: "The task description. Include 'ora XX' if it needs to be scheduled." },
-                                projectId: { type: 'string', description: "The short Project Name (e.g. 'Healing Trail') to group tasks." },
-                                energy: { type: 'string', description: "'high', 'low', or null" }
-                            },
-                            required: ['text', 'projectId']
-                        }
-                    }
-                },
-                required: ['tasks']
+// ── Tools available in Brainstorm mode ──────────────────────────────────────
+// A focused subset of Jarvis tools, plus implement_plan for turning ideas into tasks
+
+const BRAINSTORM_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'implement_plan',
+      description: 'Turn the brainstormed ideas into real tasks in the app. Use this when the user says "implement this", "add these tasks", "let\'s do it", or similar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          tasks: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                text:      { type: 'string', description: 'Task description' },
+                projectId: { type: 'string', description: 'Project name to group under' },
+                energy:    { type: 'string', description: '"high", "low", or omit' },
+                stage:     { type: 'string', description: 'Idea | Development | In Production | Paid/Wrapped' },
+                hour:      { type: 'number', description: 'Scheduled hour (0-23) if time-specific' }
+              },
+              required: ['text', 'projectId']
             }
-        }
+          }
+        },
+        required: ['tasks']
+      }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_task',
+      description: 'Add a single task directly to the task list',
+      parameters: {
+        type: 'object',
+        properties: {
+          text:      { type: 'string' },
+          projectId: { type: 'string' },
+          energy:    { type: 'string', description: '"high", "low", or omit' },
+          stage:     { type: 'string' },
+          hour:      { type: 'number' },
+          domain:    { type: 'string', description: '"business" or "personal"' }
+        },
+        required: ['text', 'projectId']
+      }
+    }
+  }
 ];
 
-const getGroq = () => new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
+// ── System prompt builder ────────────────────────────────────────────────────
 
-const BrainstormChat = ({ isOpen, onClose, taskTarget, todos, setTodos, extractProjectIdAsync, activeProjectId }) => {
-    const [messages, setMessages] = useState([]);
-    const [input, setInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+function buildBrainstormPrompt(taskTarget, todos, financial) {
+  const activeTasks = todos.filter(t => !t.completed);
+  const taskList = activeTasks.length
+    ? activeTasks.map(t => `  [ID:${t.id}] ${t.text} | ${t.stage || 'Idea'} | project:${t.projectId || 'General'}`).join('\n')
+    : '  (none)';
 
-    const [isHistoryView, setIsHistoryView] = useState(false);
-    const [savedLogs, setSavedLogs] = useState([]);
+  const fin = financial || { clients: [], spotClients: [], accountBalance: 0 };
+  const retainerTotal = (fin.clients || []).reduce((s, c) => s + c.amount, 0);
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
-    const [pendingArtifact, setPendingArtifact] = useState(null);
-    const chatSessionRef = useRef(null);
+  const focusBlock = taskTarget
+    ? `\nFOCUSED TASK: "${taskTarget}"\nYour job is to help Sergiu think through this specific task — break it down, surface what's needed, and suggest sub-steps. When he's ready, call implement_plan to inject the agreed tasks.`
+    : `\nThis is a general brainstorm session. Help Sergiu think through ideas, plan, and when ready, use implement_plan or add_task to inject agreed tasks.`;
 
-    const messagesEndRef = useRef(null);
-    const [knowledgeBase, setKnowledgeBase] = useState(() => {
-        return localStorage.getItem('jarvis_kb') || '';
-    });
+  return `You are Jarvis — Sergiu's AI chief of staff running inside his Brainstorm panel.
+TODAY: ${today}
 
-    useEffect(() => {
-        localStorage.setItem('jarvis_kb', knowledgeBase);
-    }, [knowledgeBase]);
+${focusBlock}
 
-    useEffect(() => {
-        if (!isOpen) {
-            setIsHistoryView(false);
-        } else {
-            if (activeProjectId) fetchLogs();
-            if (messages.length === 0 && !isHistoryView) {
-                if (taskTarget) {
-                    setMessages([{ role: 'ai', content: `Hi! Let's brainstorm: "${taskTarget}". How do you want to start?` }]);
-                } else {
-                    setMessages([{ role: 'ai', content: "Hi! I'm your AI assistant. Tell me what you're working on and we'll break it down." }]);
-                }
-            }
+━━ CURRENT TASKS (${activeTasks.length}) ━━
+${taskList}
+
+━━ FINANCES — target 20,000 RON/month ━━
+  Retainers: ${retainerTotal.toLocaleString()} RON/month
+  Cont firma: ${(fin.accountBalance || 0).toLocaleString()} RON
+
+━━ RULES ━━
+- Be sharp and creative. This is a thinking space, not just execution.
+- Ask clarifying questions to help Sergiu think deeper.
+- When a plan crystallises, call implement_plan immediately — don't just list tasks in text.
+- Keep responses tight: max 4-5 sentences unless actively planning.
+- Mix Romanian naturally (filmare, editare, ora, RON, etc.) when Sergiu does.
+- High energy = creative/cognitive work. Low = admin, logistics.`;
+}
+
+// ── Hash color helper (same as rest of app) ──────────────────────────────────
+
+const hashProjectColor = (projectId) => {
+  if (!projectId) return null;
+  let hash = 0;
+  for (let i = 0; i < projectId.length; i++) {
+    hash = projectId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = [
+    'bg-emerald-500/20 text-emerald-100 border-emerald-500/30',
+    'bg-indigo-500/20 text-indigo-100 border-indigo-500/30',
+    'bg-rose-500/20 text-rose-100 border-rose-500/30',
+    'bg-amber-500/20 text-amber-100 border-amber-500/30',
+    'bg-fuchsia-500/20 text-fuchsia-100 border-fuchsia-500/30',
+    'bg-cyan-500/20 text-cyan-100 border-cyan-500/30'
+  ];
+  return colors[Math.abs(hash) % colors.length];
+};
+
+// ── Quick prompts ────────────────────────────────────────────────────────────
+
+const QUICK_PROMPTS = [
+  'Break this into steps',
+  'What do I need to start?',
+  'What could go wrong?',
+  'Estimate time for each step',
+  'Implement this plan',
+];
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+const BrainstormChat = ({ isOpen, onClose, taskTarget, todos, setTodos, financial, onToolExecuted }) => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [implementedCount, setImplementedCount] = useState(0);
+  const historyRef = useRef([]);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Reset on open / new task target
+  useEffect(() => {
+    if (isOpen) {
+      historyRef.current = [];
+      setImplementedCount(0);
+      const greeting = taskTarget
+        ? `Let's dig into **"${taskTarget}"**.\n\nWhat's the current status — is this already started, or are we planning from scratch?`
+        : "Brainstorm mode. What are we thinking through?";
+      setMessages([{ role: 'assistant', text: greeting }]);
+    }
+  }, [isOpen, taskTarget]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  useEffect(() => {
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 350);
+  }, [isOpen]);
+
+  // ── Tool executor ──────────────────────────────────────────────────────────
+
+  const executeTool = (name, args) => {
+    if (name === 'implement_plan' || name === 'add_task') {
+      const tasksToAdd = name === 'implement_plan'
+        ? (args.tasks || [])
+        : [args];
+
+      const newTasks = tasksToAdd.map((t, i) => ({
+        id: Date.now() + i + 1,
+        text: t.text,
+        completed: false,
+        stage: t.stage || 'Idea',
+        energy: t.energy === 'none' ? null : (t.energy || null),
+        projectId: t.projectId || taskTarget || 'General',
+        projectColor: hashProjectColor(t.projectId || taskTarget),
+        domain: t.domain || 'business',
+        hour: t.hour || null,
+      }));
+
+      setTodos(prev => [...newTasks, ...prev]);
+      setImplementedCount(prev => prev + newTasks.length);
+
+      if (onToolExecuted) {
+        onToolExecuted(`✓ Jarvis: added ${newTasks.length} task${newTasks.length > 1 ? 's' : ''} from brainstorm`);
+      }
+
+      return { success: true, count: newTasks.length };
+    }
+    return { success: false, error: 'Unknown tool' };
+  };
+
+  // ── Send message ───────────────────────────────────────────────────────────
+
+  const send = async (text) => {
+    if (!text.trim() || isLoading) return;
+    setInput('');
+
+    const userMsg = { role: 'user', content: text };
+    historyRef.current = [...historyRef.current, userMsg];
+    setMessages(prev => [...prev, { role: 'user', text }]);
+    setIsLoading(true);
+
+    try {
+      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!apiKey) throw new Error('Add VITE_GROQ_API_KEY to your environment variables');
+
+      const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
+
+      const response = await groq.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: buildBrainstormPrompt(taskTarget, todos || [], financial) },
+          ...historyRef.current
+        ],
+        tools: BRAINSTORM_TOOLS,
+        tool_choice: 'auto',
+        max_tokens: 1024
+      });
+
+      const assistantMsg = response.choices[0].message;
+      historyRef.current = [...historyRef.current, assistantMsg];
+
+      if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
+        const toolMessages = [];
+        let actionSummary = '';
+
+        for (const toolCall of assistantMsg.tool_calls) {
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = executeTool(toolCall.function.name, args);
+          if (toolCall.function.name === 'implement_plan') {
+            actionSummary = `✓ ${result.count} tasks added to your list`;
+          }
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result)
+          });
         }
-    }, [isOpen, taskTarget, activeProjectId]);
 
-    const fetchLogs = async () => {
-        if (!activeProjectId) return;
-        try {
-            await fetch('/api/fs/archive-logs', { method: 'POST', body: JSON.stringify({ projectId: activeProjectId }) });
-            const res = await fetch(`/api/fs/load-chat-logs?projectId=${activeProjectId}`);
-            const data = await res.json();
-            if (data.logs) setSavedLogs(data.logs);
-        } catch (e) { console.error("Failed to load logs", e); }
-    };
+        historyRef.current = [...historyRef.current, ...toolMessages];
 
-    const handleSaveSession = async () => {
-        if (!activeProjectId || messages.length <= 1) return;
-        setPendingArtifact({
-            id: 'save_session',
-            name: 'save_chat_log',
-            description: `Saving this Brainstorm session (${messages.length} messages) as a JSON file to the ${activeProjectId} Project Capsule.`,
-            args: { projectId: activeProjectId, logData: messages }
+        const followUp = await groq.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: buildBrainstormPrompt(taskTarget, todos || [], financial) },
+            ...historyRef.current
+          ],
+          max_tokens: 512
         });
-    };
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isLoading]);
+        const finalText = followUp.choices[0].message.content;
+        historyRef.current = [...historyRef.current, { role: 'assistant', content: finalText }];
+        setMessages(prev => [...prev, { role: 'assistant', text: finalText, actionSummary }]);
 
-    const handleSend = async (e) => {
-        if (e) e.preventDefault();
-        if (!input.trim() || isLoading) return;
+      } else {
+        const txt = assistantMsg.content;
+        historyRef.current = [...historyRef.current, { role: 'assistant', content: txt }];
+        setMessages(prev => [...prev, { role: 'assistant', text: txt }]);
+      }
 
-        const userMessage = input;
-        setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-        setInput('');
-        setIsLoading(true);
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'assistant', text: `Error: ${e.message}` }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        try {
-            const activeTodos = todos?.filter(t => !t.completed).map(t => t.text) || [];
-            const contextStr = activeTodos.length > 0
-                ? `\n\nContext - User's active tasks:\n${activeTodos.map(t => `- ${t}`).join('\n')}`
-                : `\n\nContext - User currently has no active tasks.`;
-            const kbContext = knowledgeBase ? `\n\nJarvis Persistent Memory:\n${knowledgeBase}` : '';
-            const promptText = `User says: ${userMessage}${taskTarget ? `\nFocused Task: ${taskTarget}` : ''}${contextStr}${kbContext}\n\nINSTRUCTION: If the user shares a fact you should remember forever (likes, schedules, project context), output a markdown block EXACTLY like this (and nothing else for the memory part):\n\`\`\`json\n{"action": "save_memory", "fact": "..."}\n\`\`\``;
+  if (!isOpen) return null;
 
-            const historyMessages = messages.slice(1).map(m => ({
-                role: m.role === 'ai' ? 'assistant' : 'user',
-                content: m.content
-            }));
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+        onClick={onClose}
+      />
 
-            const allMessages = [...historyMessages, { role: 'user', content: promptText }];
+      {/* Panel */}
+      <div className="fixed top-0 right-0 bottom-0 w-full md:w-[420px] z-[110] flex flex-col bg-[#09090f]/96 backdrop-blur-2xl border-l border-white/8 shadow-2xl">
 
-            const groq = getGroq();
-            const response = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...allMessages],
-                tools,
-                max_tokens: 1024
-            });
-
-            const choice = response.choices[0];
-
-            if (choice.message.tool_calls?.length > 0) {
-                const toolCall = choice.message.tool_calls[0];
-                setPendingArtifact({
-                    id: toolCall.id,
-                    name: toolCall.function.name,
-                    args: JSON.parse(toolCall.function.arguments)
-                });
-                chatSessionRef.current = { messages: allMessages, assistantMessage: choice.message };
-                setIsLoading(false);
-                return;
-            }
-
-            processTextResponse(choice.message.content || '');
-
-        } catch (error) {
-            console.error("AI Error:", error);
-            setMessages(prev => [...prev, { role: 'ai', content: `API Error: ${error?.message}` }]);
-            setIsLoading(false);
-        }
-    };
-
-    const handleApproveArtifact = async () => {
-        const call = pendingArtifact;
-        setPendingArtifact(null);
-        setIsLoading(true);
-
-        let apiResult = {};
-        try {
-            if (call.name === 'create_folder') {
-                const res = await fetch('/api/fs/create-folder', { method: 'POST', body: JSON.stringify(call.args) });
-                apiResult = await res.json();
-            } else if (call.name === 'search_local_files') {
-                const res = await fetch('/api/fs/search', { method: 'POST', body: JSON.stringify(call.args) });
-                apiResult = await res.json();
-            } else if (call.name === 'implement_plan') {
-                const newTasks = call.args.tasks.map((taskSpec, index) => {
-                    const newId = Date.now() + index;
-                    extractProjectIdAsync(newId, taskSpec.text);
-                    return {
-                        id: newId,
-                        text: taskSpec.text,
-                        completed: false,
-                        stage: 'Idea',
-                        energy: taskSpec.energy || null,
-                        projectId: taskSpec.projectId,
-                        projectColor: null
-                    };
-                });
-                setTodos(prev => [...newTasks, ...prev]);
-                apiResult = { success: true, message: `Injected ${newTasks.length} tasks into the timeline.` };
-            } else if (call.name === 'save_chat_log') {
-                const res = await fetch('/api/fs/save-chat-log', { method: 'POST', body: JSON.stringify(call.args) });
-                apiResult = await res.json();
-                await fetchLogs();
-                setMessages(prev => [...prev, { role: 'ai', content: "✅ **Session Saved successfully to Capsule Vault!**" }]);
-                setIsLoading(false);
-                return;
-            }
-        } catch (e) {
-            apiResult = { error: e.message };
-        }
-
-        try {
-            const { messages: prevMessages, assistantMessage } = chatSessionRef.current;
-            const followUpMessages = [
-                ...prevMessages,
-                assistantMessage,
-                { role: 'tool', tool_call_id: call.id, content: JSON.stringify(apiResult) }
-            ];
-
-            const groq = getGroq();
-            const response = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...followUpMessages],
-                tools,
-                max_tokens: 1024
-            });
-
-            processTextResponse(response.choices[0].message.content || '');
-        } catch (error) {
-            setMessages(prev => [...prev, { role: 'ai', content: `Skill Execution Error: ${error?.message}` }]);
-            setIsLoading(false);
-        }
-    };
-
-    const handleDenyArtifact = async () => {
-        const call = pendingArtifact;
-        setPendingArtifact(null);
-
-        if (call.name === 'save_chat_log') return;
-
-        setIsLoading(true);
-        try {
-            const { messages: prevMessages, assistantMessage } = chatSessionRef.current;
-            const followUpMessages = [
-                ...prevMessages,
-                assistantMessage,
-                { role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: "User denied permission to execute this skill." }) }
-            ];
-
-            const groq = getGroq();
-            const response = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...followUpMessages],
-                tools,
-                max_tokens: 1024
-            });
-
-            processTextResponse(response.choices[0].message.content || '');
-        } catch (e) {
-            setIsLoading(false);
-        }
-    };
-
-    const processTextResponse = (outputText) => {
-        let finalOutput = outputText;
-        const memoryMatch = outputText.match(/```json\n?(\s*\{\s*"action"\s*:\s*"save_memory".*?\}\s*)\n?```/is);
-        if (memoryMatch) {
-            try {
-                const parsed = JSON.parse(memoryMatch[1]);
-                if (parsed.fact) setKnowledgeBase(prev => prev ? prev + '\n- ' + parsed.fact : '- ' + parsed.fact);
-            } catch (e) { }
-            finalOutput = outputText.replace(memoryMatch[0], '').trim();
-        }
-        setMessages(prev => [...prev, { role: 'ai', content: finalOutput }]);
-        setIsLoading(false);
-    };
-
-    return (
-        <>
-            <div
-                className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-                onClick={onClose}
-            />
-
-            <div
-                className={`fixed top-0 right-0 bottom-0 w-full md:w-[400px] glass-panel !rounded-none !rounded-l-3xl z-[110] transition-transform duration-500 flex flex-col shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
-                style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
-            >
-                <div className="flex items-center justify-between p-6 border-b border-white/10 relative z-10">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
-                            {isHistoryView ? <History size={24} /> : <Bot size={24} />}
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-semibold text-white">{isHistoryView ? 'Project History' : 'Brainstorm'}</h2>
-                            <p className="text-sm text-white/50 w-48 truncate">{activeProjectId ? `Project: ${activeProjectId}` : taskTarget ? `Focus: ${taskTarget}` : 'AI Assistant'}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        {activeProjectId && !isHistoryView && (
-                            <button onClick={() => { fetchLogs(); setIsHistoryView(true); }} className="p-2 text-purple-300/70 hover:text-purple-300 hover:bg-purple-500/20 rounded-xl transition-colors" title="View Saved Brainstorms">
-                                <History size={20} />
-                            </button>
-                        )}
-                        {isHistoryView && (
-                            <button onClick={() => setIsHistoryView(false)} className="p-2 text-white/50 hover:text-white/90 hover:bg-white/10 rounded-xl transition-colors text-sm font-medium px-3 flex items-center gap-2">
-                                Back to Chat
-                            </button>
-                        )}
-                        <button onClick={onClose} className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-colors">
-                            <X size={24} />
-                        </button>
-                    </div>
-                </div>
-
-                {isHistoryView ? (
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                        {savedLogs.length === 0 ? (
-                            <div className="text-center py-10 text-white/40">
-                                <FileJson size={32} className="mx-auto mb-3 opacity-50" />
-                                <p>No saved brainstorms for this project yet.</p>
-                            </div>
-                        ) : (
-                            savedLogs.map((log, idx) => (
-                                <div key={idx} className="bg-black/20 border border-white/5 rounded-2xl p-4 hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => {
-                                    alert("Previewing " + log.filename + " (Read-only format to be built)... Total messages: " + log.data.length);
-                                }}>
-                                    <h3 className="text-white/80 font-medium flex items-center gap-2"><FileJson size={16} className="text-purple-400" /> {log.filename}</h3>
-                                    <p className="text-xs text-white/50 mt-1">Contains {log.data.length} messages.</p>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                            {messages.map((msg, idx) => (
-                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-blue-500/30 border border-blue-400/20 rounded-tr-sm backdrop-blur-md' : 'bg-white/5 border border-white/10 rounded-tl-sm backdrop-blur-md'}`}>
-                                        {msg.role === 'ai' && <Sparkles className="inline-block text-purple-300 mb-2 mr-2" size={16} />}
-                                        <div className="text-white/90 leading-relaxed text-sm whitespace-pre-wrap">{msg.content}</div>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {pendingArtifact && (
-                                <div className="flex justify-start">
-                                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl rounded-tl-sm p-4 backdrop-blur-md max-w-[90%]">
-                                        <div className="flex items-center gap-2 text-orange-400 mb-2 font-semibold">
-                                            <ShieldCheck size={18} />
-                                            Review-Driven Artifact
-                                        </div>
-                                        <p className="text-white/80 text-sm mb-3">
-                                            Jarvis wants to execute <code className="block mt-1 bg-black/30 p-1 rounded font-mono text-xs">{pendingArtifact.name}({JSON.stringify(pendingArtifact.args)})</code>
-                                        </p>
-                                        <div className="flex gap-2">
-                                            <button onClick={handleApproveArtifact} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-1.5 rounded-lg text-sm font-medium transition-colors">Approve</button>
-                                            <button onClick={handleDenyArtifact} className="flex-1 bg-white/10 hover:bg-white/20 text-white/80 py-1.5 rounded-lg text-sm font-medium transition-colors">Deny</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {isLoading && (
-                                <div className="flex justify-start">
-                                    <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm p-4 backdrop-blur-md">
-                                        <Loader2 className="animate-spin text-purple-300" size={20} />
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        <div className="p-4 border-t border-white/10 bg-black/40 relative shrink-0 z-20">
-                            {activeProjectId && messages.length > 2 && (
-                                <div className="mb-3 flex justify-end">
-                                    <button onClick={handleSaveSession} disabled={isLoading} className="flex items-center gap-2 px-3 py-1.5 bg-black/30 hover:bg-black/50 border border-white/10 rounded-lg text-xs text-white/70 hover:text-white transition-colors cursor-pointer">
-                                        {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Project Session
-                                    </button>
-                                </div>
-                            )}
-                            <form onSubmit={handleSend} className="relative flex items-center">
-                                <input
-                                    type="text"
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    placeholder="Ask me anything..."
-                                    disabled={!!isLoading || !!pendingArtifact}
-                                    className="glass-input w-full pr-12 focus:ring-purple-400 focus:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed bg-black/80 shadow-inner block"
-                                    style={{ pointerEvents: 'auto' }}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!!isLoading || !input.trim() || !!pendingArtifact}
-                                    className="absolute right-2 p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-                                    style={{ pointerEvents: 'auto' }}
-                                >
-                                    <Send size={20} />
-                                </button>
-                            </form>
-                        </div>
-                    </>
-                )}
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 pb-4 border-b border-white/8"
+          style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)]">
+              <Sparkles size={17} className="text-white" />
             </div>
-        </>
-    );
+            <div>
+              <div className="text-white font-bold text-sm leading-none">Brainstorm</div>
+              <div className="text-white/30 text-[10px] mt-0.5 leading-none truncate max-w-[200px]">
+                {taskTarget ? `"${taskTarget}"` : 'Open session'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {implementedCount > 0 && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                ✓ {implementedCount} added
+              </span>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white rounded-xl hover:bg-white/10 transition-all"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-indigo-600/30 border border-indigo-500/25 text-white rounded-br-sm'
+                    : 'bg-white/5 border border-white/8 text-white/90 rounded-bl-sm'
+                }`}
+              >
+                <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>
+
+                {/* Action chip */}
+                {m.actionSummary && (
+                  <div className="mt-2">
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 inline-flex items-center gap-1.5 font-medium">
+                      <Zap size={9} /> {m.actionSummary}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white/5 border border-white/8 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+                <Loader2 size={13} className="text-indigo-400 animate-spin" />
+                <span className="text-white/30 text-xs">thinking...</span>
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Quick prompts */}
+        <div className="px-4 pt-1 pb-2 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {QUICK_PROMPTS.map(q => (
+            <button
+              key={q}
+              onClick={() => send(q)}
+              disabled={isLoading}
+              className="flex-shrink-0 text-xs px-3 py-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/8 text-indigo-300/70 hover:text-indigo-200 hover:bg-indigo-500/15 disabled:opacity-30 whitespace-nowrap transition-colors"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        {/* Input */}
+        <div
+          className="px-4 pt-2 border-t border-white/8"
+          style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+        >
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send(input)}
+              placeholder={taskTarget ? `Think through "${taskTarget.slice(0, 30)}..."` : 'What are we brainstorming?'}
+              className="flex-1 bg-white/5 border border-white/10 text-white placeholder:text-white/20 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/40 transition-colors"
+              style={{ fontSize: '16px' }}
+            />
+            <button
+              onClick={() => send(input)}
+              disabled={isLoading || !input.trim()}
+              className="w-12 h-12 rounded-xl bg-indigo-600/35 border border-indigo-500/25 text-indigo-300 flex items-center justify-center hover:bg-indigo-600/55 disabled:opacity-30 flex-shrink-0 transition-colors"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 };
 
 export default BrainstormChat;
