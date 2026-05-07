@@ -633,10 +633,7 @@ function App() {
                 <div className="animate-fade-in fade-in transition-all w-full overflow-hidden">
                   <DashboardView
                     todos={todos}
-                    setTodos={setTodos}
-                    activeProjects={activeProjects}
-                    hashProjectColor={hashProjectColor}
-                    onAiOverlapCheck={handleAiOverlapCheck}
+                    financial={financial}
                   />
                 </div>
               </div>

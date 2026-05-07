@@ -129,7 +129,7 @@ const FinancialPanel = ({ financial: financialProp, setFinancial: setFinancialPr
       {/* Revenue Summary */}
       <div className="bg-black/30 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-white/60 text-sm font-semibold">Revenue · Mai</span>
+          <span className="text-white/60 text-sm font-semibold">Revenue · {new Date().toLocaleDateString('ro-RO', { month: 'long' }).replace(/^./, c => c.toUpperCase())}</span>
           <span className="text-white/40 text-xs font-mono">target {TARGET.toLocaleString()} RON</span>
         </div>
 

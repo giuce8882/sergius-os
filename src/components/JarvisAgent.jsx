@@ -358,6 +358,7 @@ function buildSystemPrompt(todos, financial) {
   return `You are Jarvis — Sergiu's personal AI chief of staff. He runs a video production business in Romania (UGC, corporate, events). He also has a full personal life: son Elio (grădiniță pickup at 16:00), a relationship, health goals, and personal projects.
 
 TODAY: ${today}
+TODAY_ISO: ${new Date().toISOString().slice(0, 10)}
 
 ━━ BUSINESS TASKS (${businessTasks.length}) ━━
 ${businessStr}
