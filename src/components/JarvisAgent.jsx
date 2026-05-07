@@ -21,7 +21,8 @@ const TOOLS = [
           energy:    { type: 'string', description: '"high", "low", or omit' },
           projectId: { type: 'string', description: 'Client or project name (business) or life area (personal)' },
           stage:     { type: 'string', description: 'Idea | Development | In Production | Paid/Wrapped' },
-          hour:      { type: 'number', description: 'Scheduled hour (0-23) if time-specific' }
+          hour:      { type: 'number', description: 'Scheduled hour (0-23) if time-specific' },
+          dueDate:   { type: 'string', description: 'Due date in YYYY-MM-DD format if the task is for a specific day' }
         },
         required: ['text', 'domain']
       }
@@ -46,7 +47,8 @@ const TOOLS = [
                 energy:    { type: 'string' },
                 projectId: { type: 'string' },
                 stage:     { type: 'string' },
-                hour:      { type: 'number' }
+                hour:      { type: 'number' },
+                dueDate:   { type: 'string', description: 'Due date in YYYY-MM-DD format' }
               },
               required: ['text', 'domain']
             }
@@ -429,6 +431,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos, financial, setFinancial
           projectColor: args.projectId ? hashProjectColor(args.projectId) : null,
           domain: args.domain || 'business',
           hour: args.hour || null,
+          dueDate: args.dueDate || null,
         }, ...prev]);
         return { success: true, taskId: newId };
       }
@@ -444,6 +447,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos, financial, setFinancial
           projectColor: t.projectId ? hashProjectColor(t.projectId) : null,
           domain: t.domain || 'business',
           hour: t.hour || null,
+          dueDate: t.dueDate || null,
         }));
         setTodos(prev => [...newTasks, ...prev]);
         return { success: true, count: newTasks.length };
