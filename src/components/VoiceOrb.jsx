@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateText } from '../utils/ai';
 
 const VoiceOrb = ({ onIntentParsed, activeProjectId }) => {
     const [isListening, setIsListening] = useState(false);
@@ -51,20 +51,17 @@ const VoiceOrb = ({ onIntentParsed, activeProjectId }) => {
     const processIntent = async (text) => {
         setIsProcessing(true);
         try {
-            const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-            const model = genAI.getGenerativeModel({
-                model: "gemini-3-flash",
-                systemInstruction: `You are Jarvis, formatting user voice intents into JSON commands for a Todo app.
+            const prompt = `You are Jarvis, formatting user voice intents into JSON commands for a Todo app.
 The user will speak a task. You must output ONLY valid JSON.
 Format:
 {
   "action": "add_task",
   "text": "The exact task text, formatted nicely. If it mentions a time or hour (e.g. tomorrow at 9), convert it to 'ora X' format (e.g. ora 9) to work with the app's timeline."
-}${activeProjectId ? `\n\nCRITICAL CONTEXT: The user is currently inside the [${activeProjectId}] dashboard. Assume this voice task belongs to it and explicitly include it in the text or metadata if possible.` : ''}`
-            });
+}${activeProjectId ? `\n\nCRITICAL CONTEXT: The user is currently inside the [${activeProjectId}] dashboard. Assume this voice task belongs to it and explicitly include it in the text or metadata if possible.` : ''}
 
-            const result = await model.generateContent(`User voice input: "${text}"`);
-            const responseText = result.response.text();
+User voice input: "${text}"`;
+
+            const responseText = await generateText(prompt, true);
 
             const match = responseText.match(/\{.*\}/s);
             if (match) {
