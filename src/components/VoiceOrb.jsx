@@ -79,7 +79,7 @@ User voice input: "${text}"`;
     };
 
     return (
-        <div className="fixed bottom-24 right-4 md:left-2 md:bottom-2 z-50 flex flex-col items-center">
+        <div className="hidden md:flex fixed md:left-2 md:bottom-2 z-50 flex-col items-center">
 
             {/* Tooltip for transcription */}
             {transcript && (

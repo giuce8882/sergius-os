@@ -6,12 +6,12 @@ import BrainstormChat from './components/BrainstormChat';
 import VoiceOrb from './components/VoiceOrb';
 import DashboardView from './components/DashboardView';
 import LifeCalendar from './components/LifeCalendar';
-import { Plus, Sparkles, MessageCircle, Loader2, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, FileJson, DollarSign } from 'lucide-react';
+import { Plus, Sparkles, MessageCircle, Loader2, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, DollarSign } from 'lucide-react';
 import FinancialPanel from './components/FinancialPanel';
 import JarvisAgent from './components/JarvisAgent';
 import NotificationBanner from './components/NotificationBanner';
 import NotificationManager from './utils/NotificationManager';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateText } from './utils/ai';
 import audioEngine from './utils/AudioEngine';
 
 // --- SECURITY BRIEF ---
@@ -207,20 +207,11 @@ function App() {
 
   const extractProjectIdAsync = async (taskId, text) => {
     try {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
       const currentProjects = activeProjects.filter(p => p !== 'General').join(', ');
-      const prompt = `Classify this task into a short 'Project Name' (1-2 words). Here are active projects: [${currentProjects}]. Use one if it fits, or invent a catchy, highly relevant new one. Never use 'General' or 'Misc'. Return NOTHING ELSE. Task: "${text}"`;
-      const result = await model.generateContent(prompt);
-      let projectId = result.response.text().trim().replace(/["']/g, "");
-      if (projectId.toLowerCase() === 'general') projectId = 'Life Ops'; // Fallback
-
-      if (projectId) {
-        updateTodo(taskId, {
-          projectId: projectId,
-          projectColor: hashProjectColor(projectId)
-        });
-      }
+      const prompt = `Classify this task into a short 'Project Name' (1-2 words). Active projects: [${currentProjects}]. Use one if it fits, or invent a relevant new one. Never use 'General' or 'Misc'. Return ONLY the project name, nothing else. Task: "${text}"`;
+      let projectId = (await generateText(prompt, true)).replace(/["']/g, '').trim();
+      if (!projectId || projectId.toLowerCase() === 'general') projectId = 'Life Ops';
+      updateTodo(taskId, { projectId, projectColor: hashProjectColor(projectId) });
     } catch (e) {
       console.error("Failed to extract projectId", e);
     }
@@ -228,24 +219,11 @@ function App() {
 
   const handleAiOverlapCheck = async (taskText, oldHour, newHour) => {
     try {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
-
       const scheduledTasksStr = todos.filter(t => t.hour !== null).map(t => `"${t.text}" at hour ${t.hour}`).join(', ');
-
-      const prompt = `You are Jarvis, an AI scheduling assistant. The user just dragged the task "${taskText}" from hour ${oldHour} to hour ${newHour}.
-Here is their current timeline: [${scheduledTasksStr}].
-Are there any major logistical overlaps or conflicts caused by this shift? (e.g., trying to film a shoot at the same time as an edit, or double booking personal time).
-Reply with EXACTLY ONE short, conversational sentence warning the user, or reply exactly "NO_CONFLICT" if you think the new placement is fine.`;
-
-      const result = await model.generateContent(prompt);
-      const text = result.response.text().trim();
-
+      const prompt = `Scheduling assistant. Task "${taskText}" moved from hour ${oldHour} to hour ${newHour}. Timeline: [${scheduledTasksStr}]. Any major conflicts? Reply ONE short sentence warning, or exactly "NO_CONFLICT".`;
+      const text = await generateText(prompt, true);
       if (text && !text.includes('NO_CONFLICT')) {
-        setNotification({
-          title: "Timeline Shift Analysis",
-          message: text
-        });
+        setNotification({ title: "Timeline Shift", message: text });
         setTimeout(() => setNotification(null), 8000);
       }
     } catch (e) {
@@ -329,16 +307,8 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
     try {
       setSplittingIds(prev => new Set(prev).add(taskId));
 
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3-flash",
-        systemInstruction: "You are a helpful assistant. Return ONLY a valid JSON list of strings."
-      });
-
-      const prompt = `Break this task into 3 extremely short, actionable sub-tasks. Return ONLY a JSON list of strings.\nTask: "${taskText}"`;
-
-      const result = await model.generateContent(prompt);
-      const outputText = result.response.text();
+      const prompt = `Break this task into 3 extremely short, actionable sub-tasks. Return ONLY a valid JSON array of strings, nothing else.\nTask: "${taskText}"`;
+      const outputText = await generateText(prompt, false);
 
       const jsonMatch = outputText.match(/\[.*\]/s);
       let subTaskTexts = [];
@@ -385,7 +355,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
   return (
     <>
-      <div className="relative min-h-[100dvh] w-full overflow-x-hidden pb-48 md:pb-10 font-sans transition-colors duration-1000 flex bg-[#0a0a0a]">
+      <div className="relative min-h-[100dvh] w-full overflow-x-hidden pb-36 md:pb-10 font-sans transition-colors duration-1000 flex bg-[#0a0a0a]">
         {/* Fixed Left Sidebar (Desktop Only) */}
         <aside className="hidden md:flex flex-col w-20 fixed left-0 top-0 bottom-0 bg-black/60 backdrop-blur-3xl border-r border-white/5 z-50 py-8 items-center justify-between">
           <div className="flex flex-col gap-6">
@@ -399,22 +369,10 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
             <button
               onClick={() => setJarvisOpen(true)}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-900 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.5)] mb-4 hover:scale-105 transition-transform cursor-pointer border border-violet-400/20"
+              className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-900 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-105 transition-transform cursor-pointer border border-violet-400/20"
               title="Jarvis AI Agent"
             >
               <span className="text-white text-sm font-bold">J</span>
-            </button>
-
-            {/* Dry Run Button for Monday Briefing */}
-            <button
-              onClick={() => {
-                setFocusedTaskText('__MONDAY_BRIEFING__');
-                setIsChatOpen(true);
-              }}
-              className="w-10 h-10 mt-[-15px] rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.4)] mb-4 hover:scale-105 transition-transform cursor-pointer"
-              title="Run Monday Briefing (Dry Run)"
-            >
-              <FileJson size={18} className="text-white" />
             </button>
 
             <button
@@ -422,7 +380,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
                 const mutedState = audioEngine.toggleMute();
                 setIsMuted(mutedState);
               }}
-              className="p-3 mt-[-10px] rounded-xl transition-all text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer"
+              className="p-3 rounded-xl transition-all text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer"
               title={isMuted ? "Unmute Sound" : "Mute Sound"}
             >
               {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -547,7 +505,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
             {/* DAY VIEW ANCHOR */}
             {(!isOnSetMode || !activeFocusTask) && (
-              <div id="day" className={`grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-[80vh] ${viewMode === 'finance' ? 'hidden md:grid' : ''}`}>
+              <div id="day" className={`grid-cols-1 lg:grid-cols-3 gap-8 min-h-[80vh] ${viewMode === 'day' ? 'grid' : 'hidden md:grid'}`}>
 
                 {/* Main Task List */}
                 <div className="lg:col-span-2 space-y-6">
@@ -689,7 +647,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
             {/* GLOBAL DASHBOARD SCROLL VIEW */}
             {(!isOnSetMode) && (
-              <div id="dashboard" className="pt-24 min-h-screen w-full overflow-hidden">
+              <div id="dashboard" className={`pt-6 md:pt-24 min-h-screen w-full overflow-hidden ${viewMode !== 'dashboard' ? 'hidden md:block' : ''}`}>
                 <h2 className="text-3xl font-bold text-white/90 mb-8 px-2 md:px-0">Timeline Dashboard</h2>
                 <div className="animate-fade-in fade-in transition-all w-full overflow-hidden">
                   <DashboardView
@@ -704,7 +662,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
             )}
             {/* PROJECT CAPSULES VIEW */}
             {(!isOnSetMode) && (
-              <div id="projects" className="pt-24 min-h-[60vh]">
+              <div id="projects" className={`pt-6 md:pt-24 min-h-[60vh] ${viewMode !== 'projects' ? 'hidden md:block' : ''}`}>
                 {!activeProjectId ? (
                   <>
                     <h2 className="text-3xl font-bold text-white/90 mb-8">Project Capsules</h2>
@@ -845,7 +803,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
       {/* Mobile sticky input bar — only on Day view */}
       {viewMode === 'day' && (
-        <div className="md:hidden fixed left-0 right-0 z-[59] px-4 pb-2" style={{ bottom: 'calc(max(60px, 60px + env(safe-area-inset-bottom)))' }}>
+        <div className="md:hidden fixed left-0 right-0 z-[59] px-4 pb-2" style={{ bottom: 'calc(max(72px, 72px + env(safe-area-inset-bottom)))' }}>
           <form onSubmit={handleAddTodo} className="relative">
             <input
               type="text"
@@ -865,44 +823,50 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
         </div>
       )}
 
-      {/* Mobile Bottom TabBar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around py-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+      {/* Mobile Jarvis FAB — floats above tab bar center */}
+      <button
+        onClick={() => setJarvisOpen(true)}
+        className="md:hidden fixed z-[65] left-1/2 -translate-x-1/2 w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-800 flex items-center justify-center shadow-[0_0_28px_rgba(139,92,246,0.7)] border border-violet-400/30 active:scale-95 transition-transform"
+        style={{ bottom: 'calc(max(16px, env(safe-area-inset-bottom)) + 34px)' }}
+      >
+        <Sparkles size={22} className="text-white" />
+      </button>
+
+      {/* Mobile Bottom TabBar — 4 items flanking the center FAB */}
+      <div
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 z-[60] grid grid-cols-5"
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+      >
         <button
           onClick={() => { setViewMode('day'); setActiveProjectId(null); }}
-          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40'}`}
         >
           <List size={20} />
           <span className="text-[9px] font-medium">Day</span>
         </button>
         <button
           onClick={() => setViewMode('projects')}
-          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40'}`}
         >
           <LayoutGrid size={20} />
           <span className="text-[9px] font-medium">Capsules</span>
         </button>
 
-        {/* Jarvis — center FAB */}
-        <button
-          onClick={() => setJarvisOpen(true)}
-          className="flex flex-col items-center gap-0.5 -mt-4 px-2"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-800 flex items-center justify-center shadow-[0_0_24px_rgba(139,92,246,0.6)] border border-violet-400/30 active:scale-95 transition-transform">
-            <Sparkles size={22} className="text-white" />
-          </div>
-          <span className="text-[9px] font-bold text-violet-400 mt-0.5">Jarvis</span>
-        </button>
+        {/* Empty center slot for FAB */}
+        <div className="flex flex-col items-center justify-end pb-1">
+          <span className="text-[9px] font-bold text-violet-400">Jarvis</span>
+        </div>
 
         <button
           onClick={() => setViewMode('finance')}
-          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'finance' ? 'text-emerald-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'finance' ? 'text-emerald-400' : 'text-white/40'}`}
         >
           <DollarSign size={20} />
           <span className="text-[9px] font-medium">Finance</span>
         </button>
         <button
           onClick={() => setViewMode('dashboard')}
-          className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all ${viewMode === 'dashboard' ? 'text-amber-400' : 'text-white/40'}`}
+          className={`flex flex-col items-center gap-0.5 py-3 transition-all ${viewMode === 'dashboard' ? 'text-amber-400' : 'text-white/40'}`}
         >
           <Calendar size={20} />
           <span className="text-[9px] font-medium">Timeline</span>
