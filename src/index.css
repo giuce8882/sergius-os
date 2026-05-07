@@ -5,9 +5,7 @@
 @layer base {
   body {
     @apply antialiased text-white m-0 min-h-screen font-sans;
-    background: linear-gradient(-45deg, #FF6B6B, #845EC2, #D65DB1, #FF9671);
-    background-size: 400% 400%;
-    animation: gradient 15s ease infinite;
+    background: #0a0a0a;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
     touch-action: pan-y;

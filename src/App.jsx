@@ -6,6 +6,7 @@ import BrainstormChat from './components/BrainstormChat';
 import VoiceOrb from './components/VoiceOrb';
 import DashboardView from './components/DashboardView';
 import LifeCalendar from './components/LifeCalendar';
+import Sidebar from './components/Sidebar';
 import { Plus, Sparkles, MessageCircle, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, DollarSign } from 'lucide-react';
 import FinancialPanel from './components/FinancialPanel';
 import JarvisAgent from './components/JarvisAgent';
@@ -37,6 +38,15 @@ const DEFAULT_TASKS = [
   { id: 1746614014, text: 'pick up Elio ora 16', completed: false, stage: 'Idea', energy: null, projectId: 'Personal', projectColor: 'bg-cyan-500/20 text-cyan-100 border-cyan-500/30', hour: 16 },
 ];
 
+const DEFAULT_FINANCIAL = {
+  clients: [
+    { id: 'dabo', name: 'Dabo', amount: 4000, type: 'retainer', status: 'active', deliverables: '5 videos · 1 shoot day/month' },
+    { id: 'ramada', name: 'Ramada', amount: 2000, type: 'retainer', status: 'active', deliverables: '4 videos · recurring' },
+  ],
+  spotClients: [],
+  accountBalance: 11285,
+};
+
 function App() {
   const [todos, setTodos] = useState(() => {
     try {
@@ -44,6 +54,22 @@ function App() {
       return saved ? JSON.parse(saved) : DEFAULT_TASKS;
     } catch { return DEFAULT_TASKS; }
   });
+
+  // Financial state lifted to App so Jarvis + FinancialPanel share the same source
+  const [financial, setFinancialState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sergiu_os_financial');
+      const parsed = saved ? JSON.parse(saved) : DEFAULT_FINANCIAL;
+      if (parsed.accountBalance === undefined) parsed.accountBalance = 11285;
+      return parsed;
+    } catch { return DEFAULT_FINANCIAL; }
+  });
+
+  const setFinancial = (updated) => {
+    setFinancialState(updated);
+    try { localStorage.setItem('sergiu_os_financial', JSON.stringify(updated)); } catch {}
+  };
+
   const [isTasksLoaded, setIsTasksLoaded] = useState(true);
 
   // Save to localStorage
@@ -357,92 +383,22 @@ function App() {
     <>
       <div className="relative min-h-[100dvh] w-full overflow-x-hidden pb-[160px] md:pb-10 font-sans transition-colors duration-1000 flex bg-[#0a0a0a]">
         {/* Fixed Left Sidebar (Desktop Only) */}
-        <aside className="hidden md:flex flex-col w-20 fixed left-0 top-0 bottom-0 bg-black/60 backdrop-blur-3xl border-r border-white/5 z-50 py-8 items-center justify-between">
-          <div className="flex flex-col gap-6">
-            <button
-              onClick={() => setIsChatOpen(true)}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] mb-2 hover:scale-105 transition-transform cursor-pointer"
-              title="Brainstorm Assistant"
-            >
-              <Sparkles size={20} className="text-white" />
-            </button>
-
-            <button
-              onClick={() => setJarvisOpen(true)}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-900 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-105 transition-transform cursor-pointer border border-violet-400/20"
-              title="Jarvis AI Agent"
-            >
-              <span className="text-white text-sm font-bold">J</span>
-            </button>
-
-            <button
-              onClick={() => {
-                const mutedState = audioEngine.toggleMute();
-                setIsMuted(mutedState);
-              }}
-              className="p-3 rounded-xl transition-all text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer"
-              title={isMuted ? "Unmute Sound" : "Mute Sound"}
-            >
-              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
-
-            <button
-              onClick={() => setIsOnSetMode(!isOnSetMode)}
-              className={`p-3 rounded-xl transition-all ${isOnSetMode ? 'bg-amber-500/20 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer'}`}
-              title="Toggle On-Set Mode (Focus)"
-            >
-              {isOnSetMode ? <EyeOff size={22} /> : <Eye size={22} />}
-            </button>
-
-
-            <button
-              onClick={() => scrollToSection('day')}
-              className={`p-3 rounded-xl transition-all ${viewMode === 'day' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer'}`}
-              title="Day View"
-            >
-              <ListTodo size={22} />
-            </button>
-
-            <button
-              onClick={() => scrollToSection('projects')}
-              className={`p-3 rounded-xl transition-all ${viewMode === 'projects' && !activeProjectId ? 'bg-purple-500/20 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer'}`}
-              title="Global Projects"
-            >
-              <LayoutGrid size={22} />
-            </button>
-
-            <button
-              onClick={() => scrollToSection('dashboard')}
-              className={`p-3 rounded-xl transition-all ${viewMode === 'dashboard' ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer'}`}
-              title="Timeline Dashboard"
-            >
-              <Clock size={22} />
-            </button>
-
-            <div className="w-8 h-px bg-white/10 my-2"></div>
-
-            <button
-              onClick={() => setIsCalendarOpen(true)}
-              className={`p-3 rounded-xl transition-all ${isCalendarOpen ? 'bg-blue-500/20 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer'}`}
-              title="Life Calendar"
-            >
-              <Calendar size={22} />
-            </button>
-
-            <button
-              onClick={() => { scrollToSection('day'); setRightPanel('finance'); }}
-              className={`p-3 rounded-xl transition-all ${rightPanel === 'finance' ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5 cursor-pointer'}`}
-              title="Finance Dashboard"
-            >
-              <DollarSign size={22} />
-            </button>
-          </div>
-
-          {/* Placeholder for VoiceOrb Dock */}
-          <div id="orb-dock" className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center bg-white/5">
-            {/* VoiceOrb will be teleported or restyled to dock here on desktop */}
-          </div>
-        </aside>
+        <Sidebar
+          setIsChatOpen={setIsChatOpen}
+          setJarvisOpen={setJarvisOpen}
+          isMuted={isMuted}
+          setIsMuted={setIsMuted}
+          audioEngine={audioEngine}
+          isOnSetMode={isOnSetMode}
+          setIsOnSetMode={setIsOnSetMode}
+          scrollToSection={scrollToSection}
+          viewMode={viewMode}
+          activeProjectId={activeProjectId}
+          isCalendarOpen={isCalendarOpen}
+          setIsCalendarOpen={setIsCalendarOpen}
+          rightPanel={rightPanel}
+          setRightPanel={setRightPanel}
+        />
 
         {/* Main Content Area */}
         <div className={`flex-1 md:ml-20 flex flex-col min-h-screen px-3 md:px-4 pt-6 pb-10 md:py-16 relative transition-all duration-700 ${isCalendarOpen ? 'blur-[60px] opacity-30 scale-95' : 'blur-0 opacity-100 scale-100'}`}>
@@ -514,7 +470,7 @@ function App() {
               <div className="md:hidden pb-4 animate-fade-in">
                 <h2 className="text-xl font-bold text-white mb-3">Finance</h2>
                 <GlassPanel>
-                  <FinancialPanel />
+                  <FinancialPanel financial={financial} setFinancial={setFinancial} />
                 </GlassPanel>
               </div>
             )}
@@ -618,18 +574,18 @@ function App() {
                 <div className="lg:col-span-1">
                   <GlassPanel>
                     {/* Tab switcher */}
-                    <div className="flex gap-1 mb-5 bg-black/20 p-1 rounded-xl border border-white/5">
+                    <div className="flex gap-2 mb-5 bg-black/30 p-1.5 rounded-2xl border border-white/5">
                       <button
                         onClick={() => setRightPanel('time')}
-                        className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg transition-all ${rightPanel === 'time' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl transition-all ${rightPanel === 'time' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
                       >
-                        <Clock size={13} /> Time Blocks
+                        <Clock size={16} /> Time Blocks
                       </button>
                       <button
                         onClick={() => setRightPanel('finance')}
-                        className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg transition-all ${rightPanel === 'finance' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/40 hover:text-white/70'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl transition-all ${rightPanel === 'finance' ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
                       >
-                        <DollarSign size={13} /> Finance
+                        <DollarSign size={16} /> Finance
                       </button>
                     </div>
 
@@ -646,8 +602,8 @@ function App() {
                               <div className="text-sm font-semibold text-white/80 mb-1">{t.hour}:00</div>
                               <div className={`border rounded-lg p-3 text-sm text-white/90 ${t.projectColor ? t.projectColor : 'bg-white/5 border-white/10'}`}>
                                 {t.text}
-                                {t.energy === 'high' && <span className="ml-2 text-xs bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full inline-block mt-1">🔴 High Energy</span>}
-                                {t.energy === 'low' && <span className="ml-2 text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full inline-block mt-1">🟢 Low Energy</span>}
+                                {t.energy === 'high' && <span className="ml-2 text-[10px] uppercase tracking-wider font-bold bg-red-500/10 text-red-400 px-2 py-1 rounded border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)] inline-flex items-center"><div className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 shadow-[0_0_5px_rgba(239,68,68,0.8)]"></div>High</span>}
+                                {t.energy === 'low' && <span className="ml-2 text-[10px] uppercase tracking-wider font-bold bg-green-500/10 text-green-400 px-2 py-1 rounded border border-green-500/20 inline-flex items-center"><div className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></div>Low</span>}
                               </div>
                             </div>
                           ))}
@@ -655,7 +611,7 @@ function App() {
                       )
                     )}
 
-                    {rightPanel === 'finance' && <FinancialPanel />}
+                    {rightPanel === 'finance' && <FinancialPanel financial={financial} setFinancial={setFinancial} />}
                   </GlassPanel>
                 </div>
               </div>
@@ -790,6 +746,8 @@ function App() {
         onClose={() => setJarvisOpen(false)}
         todos={todos}
         setTodos={setTodos}
+        financial={financial}
+        setFinancial={setFinancial}
       />
 
       {/* Voice Orb */}
@@ -819,7 +777,7 @@ function App() {
 
       {/* Mobile sticky input bar — only on Day view */}
       {viewMode === 'day' && (
-        <div className="md:hidden fixed left-4 right-4 z-[59]" style={{ bottom: 'calc(88px + max(0px, env(safe-area-inset-bottom)))' }}>
+        <div className="md:hidden fixed left-4 right-4 z-[59]" style={{ bottom: 'calc(134px + max(0px, env(safe-area-inset-bottom)))' }}>
           <form onSubmit={handleAddTodo} className="relative">
             <input
               type="text"

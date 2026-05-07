@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, CheckCircle, Plus, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
-
-const RETAINERS = [
-  { id: 'dabo', name: 'Dabo', amount: 4000, type: 'retainer', status: 'active', deliverables: '5 videos · 1 shoot day/month' },
-  { id: 'ramada', name: 'Ramada', amount: 2000, type: 'retainer', status: 'active', deliverables: '4 videos · recurring' },
-];
+import { CheckCircle, Plus, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
 
 const FIXED_EXPENSES = [
   { id: 'credit_ing',       name: 'Credit ING Firmă',       amount: 1700, category: 'debt' },
@@ -31,34 +26,47 @@ const TARGET = 20000;
 const TOTAL_EXPENSES = FIXED_EXPENSES.reduce((s, e) => s + e.amount, 0);
 
 const DEFAULT_FINANCIAL = {
-  clients: RETAINERS,
+  clients: [
+    { id: 'dabo', name: 'Dabo', amount: 4000, type: 'retainer', status: 'active', deliverables: '5 videos · 1 shoot day/month' },
+    { id: 'ramada', name: 'Ramada', amount: 2000, type: 'retainer', status: 'active', deliverables: '4 videos · recurring' },
+  ],
   spotClients: [],
   accountBalance: 11285,
 };
 
-const FinancialPanel = () => {
-  const [financial, setFinancial] = useState(null);
+// FinancialPanel: controlled by App (financial+setFinancial props) or standalone fallback
+const FinancialPanel = ({ financial: financialProp, setFinancial: setFinancialProp }) => {
+  const [localFinancial, setLocalFinancial] = useState(null);
+
+  useEffect(() => {
+    if (!financialProp) {
+      try {
+        const saved = localStorage.getItem('sergiu_os_financial');
+        const parsed = saved ? JSON.parse(saved) : DEFAULT_FINANCIAL;
+        if (parsed.accountBalance === undefined) parsed.accountBalance = 11285;
+        setLocalFinancial(parsed);
+      } catch {
+        setLocalFinancial(DEFAULT_FINANCIAL);
+      }
+    }
+  }, [financialProp]);
+
+  const financial = financialProp ?? localFinancial;
+
+  const persist = (updated) => {
+    if (setFinancialProp) {
+      setFinancialProp(updated);
+    } else {
+      setLocalFinancial(updated);
+      try { localStorage.setItem('sergiu_os_financial', JSON.stringify(updated)); } catch {}
+    }
+  };
+
   const [isAdding, setIsAdding] = useState(false);
   const [newSpot, setNewSpot] = useState({ name: '', amount: '', status: 'invoiced' });
   const [showExpenses, setShowExpenses] = useState(false);
   const [editingBalance, setEditingBalance] = useState(false);
   const [balanceDraft, setBalanceDraft] = useState('');
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sergiu_os_financial');
-      const parsed = saved ? JSON.parse(saved) : DEFAULT_FINANCIAL;
-      if (parsed.accountBalance === undefined) parsed.accountBalance = 11285;
-      setFinancial(parsed);
-    } catch {
-      setFinancial(DEFAULT_FINANCIAL);
-    }
-  }, []);
-
-  const persist = (updated) => {
-    setFinancial(updated);
-    try { localStorage.setItem('sergiu_os_financial', JSON.stringify(updated)); } catch {}
-  };
 
   if (!financial) return (
     <div className="animate-pulse text-white/30 text-sm text-center py-8">Loading finance...</div>
@@ -78,14 +86,14 @@ const FinancialPanel = () => {
     collected >= TARGET * 0.6 ? 'from-amber-500 to-amber-400' : 'from-red-500 to-red-400';
 
   const balance = financial.accountBalance || 0;
-  const netMonthly = TARGET - TOTAL_EXPENSES; // if target is hit
+  const netMonthly = TARGET - TOTAL_EXPENSES;
   const runwayDays = Math.floor((balance / TOTAL_EXPENSES) * 30);
   const runwayColor = runwayDays >= 30 ? 'text-emerald-400' : runwayDays >= 15 ? 'text-amber-400' : 'text-red-400';
   const runwayBg = runwayDays >= 30 ? 'bg-emerald-500/10 border-emerald-500/20' : runwayDays >= 15 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20';
 
   const addSpot = () => {
     if (!newSpot.name.trim() || !newSpot.amount) return;
-    const updated = {
+    persist({
       ...financial,
       spotClients: [...(financial.spotClients || []), {
         id: Date.now().toString(),
@@ -94,8 +102,7 @@ const FinancialPanel = () => {
         status: newSpot.status,
         type: 'spot'
       }]
-    };
-    persist(updated);
+    });
     setNewSpot({ name: '', amount: '', status: 'invoiced' });
     setIsAdding(false);
   };
@@ -119,7 +126,7 @@ const FinancialPanel = () => {
   return (
     <div className="space-y-3">
 
-      {/* ── Revenue Summary ── */}
+      {/* Revenue Summary */}
       <div className="bg-black/30 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
         <div className="flex items-center justify-between mb-2">
           <span className="text-white/60 text-sm font-semibold">Revenue · Mai</span>
@@ -163,7 +170,7 @@ const FinancialPanel = () => {
         </div>
       </div>
 
-      {/* ── Cash Position ── */}
+      {/* Cash Position */}
       <div className={`border rounded-2xl p-4 backdrop-blur-md ${runwayBg}`}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-white/60 text-xs font-medium uppercase tracking-wider">Cash Position</span>
@@ -171,7 +178,6 @@ const FinancialPanel = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
-          {/* Balance */}
           <div className="text-center">
             <div className="text-[11px] text-white/40 mb-1 font-medium">Cont Firmă</div>
             {editingBalance ? (
@@ -195,14 +201,12 @@ const FinancialPanel = () => {
             <div className="text-[10px] text-white/30 mt-0.5">RON · tap edit</div>
           </div>
 
-          {/* Monthly out */}
           <div className="text-center">
             <div className="text-[11px] text-white/40 mb-1 font-medium">Ieșiri / lună</div>
             <div className="text-red-400 font-bold font-mono text-base tabular-nums">{TOTAL_EXPENSES.toLocaleString()}</div>
             <div className="text-[10px] text-white/30 mt-0.5">RON fix</div>
           </div>
 
-          {/* Runway */}
           <div className="text-center">
             <div className="text-[11px] text-white/40 mb-1 font-medium">Runway</div>
             <div className={`font-bold font-mono text-base tabular-nums ${runwayColor}`}>{runwayDays}z</div>
@@ -210,7 +214,6 @@ const FinancialPanel = () => {
           </div>
         </div>
 
-        {/* Net if target hit */}
         <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${netMonthly >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
           <span className="text-xs text-white/50 font-medium">Net dacă target e atins</span>
           <div className="flex items-center gap-1.5">
@@ -222,7 +225,7 @@ const FinancialPanel = () => {
         </div>
       </div>
 
-      {/* ── Expenses Breakdown (collapsible) ── */}
+      {/* Expenses Breakdown (collapsible) */}
       <div className="bg-black/20 border border-white/8 rounded-2xl overflow-hidden">
         <button
           onClick={() => setShowExpenses(!showExpenses)}
@@ -253,7 +256,7 @@ const FinancialPanel = () => {
         )}
       </div>
 
-      {/* ── Retainer Clients ── */}
+      {/* Retainer Clients */}
       <div className="space-y-1.5">
         <div className="text-xs font-semibold text-white/40 uppercase tracking-wider px-1">Retainers</div>
         {financial.clients.map(c => (
@@ -270,7 +273,7 @@ const FinancialPanel = () => {
         ))}
       </div>
 
-      {/* ── Spot Clients ── */}
+      {/* Spot Clients */}
       {(financial.spotClients || []).length > 0 && (
         <div className="space-y-1.5">
           <div className="text-xs font-semibold text-white/40 uppercase tracking-wider px-1">Spot / One-off</div>
@@ -285,11 +288,11 @@ const FinancialPanel = () => {
               <div className="flex items-center gap-2">
                 <span className="text-white/60 font-mono text-xs tabular-nums">{c.amount.toLocaleString()} RON</span>
                 {c.status === 'invoiced' && (
-                  <button onClick={() => markPaid(c.id)} className="text-emerald-400/50 hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all" title="Mark paid">
+                  <button onClick={() => markPaid(c.id)} className="text-emerald-400/50 hover:text-emerald-400 opacity-0 group-hover:opacity-100 active:opacity-100 transition-all" title="Mark paid">
                     <CheckCircle size={13} />
                   </button>
                 )}
-                <button onClick={() => removeSpot(c.id)} className="text-red-400/50 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                <button onClick={() => removeSpot(c.id)} className="text-red-400/50 hover:text-red-400 opacity-0 group-hover:opacity-100 active:opacity-100 transition-all">
                   <X size={11} />
                 </button>
               </div>
@@ -298,7 +301,7 @@ const FinancialPanel = () => {
         </div>
       )}
 
-      {/* ── Add spot client ── */}
+      {/* Add spot client */}
       {isAdding ? (
         <div className="bg-black/30 border border-white/10 rounded-2xl p-3 space-y-2">
           <input
