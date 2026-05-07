@@ -1,109 +1,129 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Send, Loader2 } from 'lucide-react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import NotificationManager from '../utils/NotificationManager';
 
-const JARVIS_MODEL = 'gemini-2.5-flash-preview-05-20';
+const MODEL = 'llama-3.3-70b-versatile';
 
-const TOOLS = [{
-  functionDeclarations: [
-    {
+const TOOLS = [
+  {
+    type: 'function',
+    function: {
       name: 'add_task',
       description: 'Add a new task to the OS',
       parameters: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          text: { type: 'STRING', description: 'Task text' },
-          energy: { type: 'STRING', description: '"high", "low", or omit' },
-          projectId: { type: 'STRING', description: 'Client/project name' },
-          stage: { type: 'STRING', description: 'Idea | Development | In Production | Paid/Wrapped' }
+          text: { type: 'string', description: 'Task text' },
+          energy: { type: 'string', description: '"high", "low", or omit' },
+          projectId: { type: 'string', description: 'Client/project name' },
+          stage: { type: 'string', description: 'Idea | Development | In Production | Paid/Wrapped' }
         },
         required: ['text']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'complete_task',
       description: 'Mark a task as completed',
       parameters: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          taskId: { type: 'NUMBER', description: 'Numeric task ID from the task list' }
+          taskId: { type: 'number', description: 'Numeric task ID' }
         },
         required: ['taskId']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'delete_task',
-      description: 'Delete a task',
+      description: 'Delete a task permanently',
       parameters: {
-        type: 'OBJECT',
-        properties: { taskId: { type: 'NUMBER' } },
+        type: 'object',
+        properties: { taskId: { type: 'number' } },
         required: ['taskId']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'set_task_energy',
       description: 'Set energy level of a task',
       parameters: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          taskId: { type: 'NUMBER' },
-          energy: { type: 'STRING', description: '"high", "low", or "none"' }
+          taskId: { type: 'number' },
+          energy: { type: 'string', description: '"high", "low", or "none"' }
         },
         required: ['taskId', 'energy']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'set_task_stage',
       description: 'Set the stage of a task',
       parameters: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          taskId: { type: 'NUMBER' },
-          stage: { type: 'STRING' }
+          taskId: { type: 'number' },
+          stage: { type: 'string' }
         },
         required: ['taskId', 'stage']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'add_invoice',
       description: 'Add a spot client invoice to the financial tracker',
       parameters: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          name: { type: 'STRING' },
-          amount: { type: 'NUMBER', description: 'Amount in RON' },
-          status: { type: 'STRING', description: '"invoiced" or "paid"' }
+          name: { type: 'string' },
+          amount: { type: 'number', description: 'Amount in RON' },
+          status: { type: 'string', description: '"invoiced" or "paid"' }
         },
         required: ['name', 'amount', 'status']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'mark_invoice_paid',
       description: 'Mark a spot client invoice as paid by client name',
       parameters: {
-        type: 'OBJECT',
-        properties: {
-          clientName: { type: 'STRING' }
-        },
+        type: 'object',
+        properties: { clientName: { type: 'string' } },
         required: ['clientName']
       }
-    },
-    {
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'schedule_reminder',
       description: 'Set a notification reminder for the user',
       parameters: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          title: { type: 'STRING', description: 'Notification title' },
-          body: { type: 'STRING', description: 'Notification body' },
-          minutesFromNow: { type: 'NUMBER', description: 'How many minutes from now to fire the reminder' }
+          title: { type: 'string' },
+          body: { type: 'string' },
+          minutesFromNow: { type: 'number' }
         },
         required: ['title', 'body', 'minutesFromNow']
       }
     }
-  ]
-}];
+  }
+];
 
 const ACTION_LABELS = {
   add_task: '+ task added',
@@ -120,7 +140,7 @@ const QUICK_PROMPTS = [
   'Morning briefing',
   'What should I do first?',
   'How close am I to target?',
-  'What\'s still invoiced?',
+  "What's still invoiced?",
 ];
 
 const getFinancial = () => {
@@ -164,8 +184,8 @@ Invoices:
 ${invoicesStr}
 
 RULES:
-- Be direct. No fluff. Max 3 sentences unless briefing.
-- When asked to do something — use tools, do it, confirm in one line.
+- Be direct. No fluff. Max 3 sentences unless doing a briefing.
+- When asked to do something — use the tools, do it, confirm in one line.
 - Morning briefing format: 1) Finance status 2) Top 3 tasks by priority 3) One risk or flag.
 - Mix Romanian naturally (RON, ora, filmare, editare, etc.) when Sergiu does.
 - High energy = cognitively demanding creative work. Low = admin, calls, pickups.`;
@@ -175,7 +195,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const chatRef = useRef(null);
+  const historyRef = useRef([]); // OpenAI-style message history
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -242,49 +262,75 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
       case 'schedule_reminder': {
         const tag = `jarvis-reminder-${Date.now()}`;
         NotificationManager.scheduleCustom(args.title, args.body, args.minutesFromNow, tag);
-        return { success: true, message: `Reminder set for ${args.minutesFromNow} min from now` };
+        return { success: true };
       }
       default:
         return { success: false, error: 'Unknown tool' };
     }
   };
 
-  const initChat = () => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) throw new Error('Add VITE_GEMINI_API_KEY to Netlify env vars');
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: JARVIS_MODEL,
-      tools: TOOLS,
-      systemInstruction: buildSystemPrompt(todos)
-    });
-    return model.startChat({ history: [] });
-  };
-
   const send = async (text) => {
     if (!text.trim() || isLoading) return;
     setInput('');
+
+    const userMsg = { role: 'user', content: text };
+    historyRef.current = [...historyRef.current, userMsg];
     setMessages(prev => [...prev, { role: 'user', text }]);
     setIsLoading(true);
 
     try {
-      if (!chatRef.current) chatRef.current = initChat();
-      const result = await chatRef.current.sendMessage(text);
-      const response = result.response;
-      const calls = response.functionCalls?.();
+      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!apiKey) throw new Error('Add VITE_GROQ_API_KEY to Netlify env vars');
 
-      if (calls && calls.length > 0) {
-        const toolResults = [];
+      const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
+
+      const response = await groq.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: buildSystemPrompt(todos) },
+          ...historyRef.current
+        ],
+        tools: TOOLS,
+        tool_choice: 'auto',
+        max_tokens: 1024
+      });
+
+      const assistantMsg = response.choices[0].message;
+      historyRef.current = [...historyRef.current, assistantMsg];
+
+      // Handle tool calls
+      if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
         const actions = [];
-        for (const call of calls) {
-          const res = executeTool(call.name, call.args);
-          actions.push({ name: call.name });
-          toolResults.push({ functionResponse: { name: call.name, response: res } });
+        const toolMessages = [];
+
+        for (const toolCall of assistantMsg.tool_calls) {
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = executeTool(toolCall.function.name, args);
+          actions.push({ name: toolCall.function.name });
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result)
+          });
         }
-        const followUp = await chatRef.current.sendMessage(toolResults);
-        setMessages(prev => [...prev, { role: 'assistant', text: followUp.response.text(), actions }]);
+
+        historyRef.current = [...historyRef.current, ...toolMessages];
+
+        // Get final response after tool execution
+        const followUp = await groq.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: buildSystemPrompt(todos) },
+            ...historyRef.current
+          ],
+          max_tokens: 512
+        });
+
+        const finalText = followUp.choices[0].message.content;
+        historyRef.current = [...historyRef.current, { role: 'assistant', content: finalText }];
+        setMessages(prev => [...prev, { role: 'assistant', text: finalText, actions }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', text: response.text() }]);
+        setMessages(prev => [...prev, { role: 'assistant', text: assistantMsg.content }]);
       }
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', text: `⚠️ ${e.message}` }]);
@@ -294,7 +340,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
   };
 
   const triggerBriefing = () => {
-    chatRef.current = null;
+    historyRef.current = [];
     send('Morning briefing. Go.');
   };
 
@@ -303,7 +349,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-[#08080f]/97 backdrop-blur-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/8"
+      <div className="flex items-center justify-between px-4 pb-3 border-b border-white/8"
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-[0_0_24px_rgba(139,92,246,0.5)]">
@@ -311,7 +357,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
           </div>
           <div>
             <div className="text-white font-semibold text-sm leading-none">Jarvis</div>
-            <div className="text-white/30 text-[10px] mt-0.5">Gemini 2.5 Flash · {todos.filter(t => !t.completed).length} tasks in context</div>
+            <div className="text-white/30 text-[10px] mt-0.5">Llama 3.3 70B · {todos.filter(t => !t.completed).length} tasks in context</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
