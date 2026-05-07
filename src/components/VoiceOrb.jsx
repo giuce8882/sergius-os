@@ -53,7 +53,7 @@ const VoiceOrb = ({ onIntentParsed, activeProjectId }) => {
         try {
             const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
             const model = genAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
+                model: "gemini-3-flash",
                 systemInstruction: `You are Jarvis, formatting user voice intents into JSON commands for a Todo app.
 The user will speak a task. You must output ONLY valid JSON.
 Format:

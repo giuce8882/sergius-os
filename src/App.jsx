@@ -15,7 +15,7 @@ import audioEngine from './utils/AudioEngine';
 // --- SECURITY BRIEF ---
 // DATA SENT: The prompt sends ONLY the literal string of the specific task to the API 
 // to be broken down. No PII, full lists, or other context is included.
-// URL HIT: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
+// URL HIT: https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent
 // ----------------------
 
 const DEFAULT_TASKS = [
@@ -201,7 +201,7 @@ function App() {
   const extractProjectIdAsync = async (taskId, text) => {
     try {
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
       const currentProjects = activeProjects.filter(p => p !== 'General').join(', ');
       const prompt = `Classify this task into a short 'Project Name' (1-2 words). Here are active projects: [${currentProjects}]. Use one if it fits, or invent a catchy, highly relevant new one. Never use 'General' or 'Misc'. Return NOTHING ELSE. Task: "${text}"`;
       const result = await model.generateContent(prompt);
@@ -222,7 +222,7 @@ function App() {
   const handleAiOverlapCheck = async (taskText, oldHour, newHour) => {
     try {
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
       const scheduledTasksStr = todos.filter(t => t.hour !== null).map(t => `"${t.text}" at hour ${t.hour}`).join(', ');
 
@@ -324,7 +324,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash",
         systemInstruction: "You are a helpful assistant. Return ONLY a valid JSON list of strings."
       });
 

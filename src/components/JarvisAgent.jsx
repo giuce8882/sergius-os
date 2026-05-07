@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Send, Loader2 } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const JARVIS_MODEL = 'gemini-2.0-flash';
+const JARVIS_MODEL = 'gemini-3-flash';
 
 const TOOLS = [{
   functionDeclarations: [
@@ -291,7 +291,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
           </div>
           <div>
             <div className="text-white font-semibold text-sm leading-none">Jarvis</div>
-            <div className="text-white/30 text-[10px] mt-0.5">Gemini 2.0 · {todos.filter(t => !t.completed).length} tasks in context</div>
+            <div className="text-white/30 text-[10px] mt-0.5">Gemini 3 Flash · {todos.filter(t => !t.completed).length} tasks in context</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
