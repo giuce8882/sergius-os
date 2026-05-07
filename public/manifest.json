@@ -1,21 +1,40 @@
 {
-    "name": "LiquidTodo",
-    "short_name": "Liquid",
-    "description": "ADHD Time-Blocking & Scene Autonomy System",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#0a0a0a",
-    "theme_color": "#0a0a0a",
-    "icons": [
-        {
-            "src": "/pwa-icon.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "/pwa-icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        }
-    ]
+  "name": "Sergiu OS",
+  "short_name": "Sergiu OS",
+  "description": "Your whole life. At a glance.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Jarvis",
+      "short_name": "Jarvis",
+      "description": "Talk to your AI agent",
+      "url": "/?jarvis=1",
+      "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Add Task",
+      "short_name": "Add Task",
+      "url": "/?add=1",
+      "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
+    }
+  ]
 }

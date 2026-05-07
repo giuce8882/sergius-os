@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Send, Loader2 } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import NotificationManager from '../utils/NotificationManager';
 
-const JARVIS_MODEL = 'gemini-3-flash';
+const JARVIS_MODEL = 'gemini-2.5-flash-preview-05-20';
 
 const TOOLS = [{
   functionDeclarations: [
@@ -87,6 +88,19 @@ const TOOLS = [{
         },
         required: ['clientName']
       }
+    },
+    {
+      name: 'schedule_reminder',
+      description: 'Set a notification reminder for the user',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          title: { type: 'STRING', description: 'Notification title' },
+          body: { type: 'STRING', description: 'Notification body' },
+          minutesFromNow: { type: 'NUMBER', description: 'How many minutes from now to fire the reminder' }
+        },
+        required: ['title', 'body', 'minutesFromNow']
+      }
     }
   ]
 }];
@@ -98,7 +112,8 @@ const ACTION_LABELS = {
   set_task_energy: '⚡ energy set',
   set_task_stage: '◈ stage updated',
   add_invoice: '$ invoice added',
-  mark_invoice_paid: '$ marked paid'
+  mark_invoice_paid: '$ marked paid',
+  schedule_reminder: '🔔 reminder set'
 };
 
 const QUICK_PROMPTS = [
@@ -224,6 +239,11 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
         });
         return { success: true };
       }
+      case 'schedule_reminder': {
+        const tag = `jarvis-reminder-${Date.now()}`;
+        NotificationManager.scheduleCustom(args.title, args.body, args.minutesFromNow, tag);
+        return { success: true, message: `Reminder set for ${args.minutesFromNow} min from now` };
+      }
       default:
         return { success: false, error: 'Unknown tool' };
     }
@@ -291,7 +311,7 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos }) => {
           </div>
           <div>
             <div className="text-white font-semibold text-sm leading-none">Jarvis</div>
-            <div className="text-white/30 text-[10px] mt-0.5">Gemini 3 Flash · {todos.filter(t => !t.completed).length} tasks in context</div>
+            <div className="text-white/30 text-[10px] mt-0.5">Gemini 2.5 Flash · {todos.filter(t => !t.completed).length} tasks in context</div>
           </div>
         </div>
         <div className="flex items-center gap-2">

@@ -9,6 +9,8 @@ import LifeCalendar from './components/LifeCalendar';
 import { Plus, Sparkles, MessageCircle, Loader2, Play, Square, Timer, Bell, Clock, LayoutGrid, ListTodo, List, Calendar, Circle, CheckCircle2, Volume2, VolumeX, Eye, EyeOff, FileJson, DollarSign } from 'lucide-react';
 import FinancialPanel from './components/FinancialPanel';
 import JarvisAgent from './components/JarvisAgent';
+import NotificationBanner from './components/NotificationBanner';
+import NotificationManager from './utils/NotificationManager';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import audioEngine from './utils/AudioEngine';
 
@@ -47,6 +49,11 @@ function App() {
   // Save to localStorage
   useEffect(() => {
     try { localStorage.setItem('sergiu_os_tasks', JSON.stringify(todos)); } catch {}
+  }, [todos]);
+
+  // Reschedule task alerts whenever todos change
+  useEffect(() => {
+    NotificationManager.scheduleTaskAlerts(todos);
   }, [todos]);
 
   const [inputValue, setInputValue] = useState('');
@@ -544,6 +551,10 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
                 {/* Main Task List */}
                 <div className="lg:col-span-2 space-y-6">
+                  <NotificationBanner
+                    todos={todos}
+                    onGranted={() => NotificationManager.init(todos)}
+                  />
                   <StatusPanel activeTodosCount={activeCount} todos={todos} />
 
                   <GlassPanel>
