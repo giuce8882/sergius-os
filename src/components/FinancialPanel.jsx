@@ -117,18 +117,18 @@ const FinancialPanel = () => {
         </div>
 
         {/* 3-column breakdown */}
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="text-center bg-emerald-500/10 rounded-xl p-2 border border-emerald-500/20">
-            <div className="text-emerald-400 font-bold font-mono text-sm">{retainerFloor.toLocaleString()}</div>
-            <div className="text-white/30 text-[9px] mt-0.5">Retainers</div>
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          <div className="text-center bg-emerald-500/10 rounded-xl py-2 px-1 border border-emerald-500/20">
+            <div className="text-emerald-400 font-bold font-mono text-xs leading-tight tabular-nums">{retainerFloor.toLocaleString()}</div>
+            <div className="text-white/40 text-[9px] mt-0.5 leading-none">Retainers</div>
           </div>
-          <div className="text-center bg-amber-500/10 rounded-xl p-2 border border-amber-500/20">
-            <div className="text-amber-400 font-bold font-mono text-sm">{spotInvoiced.toLocaleString()}</div>
-            <div className="text-white/30 text-[9px] mt-0.5">Invoiced</div>
+          <div className="text-center bg-amber-500/10 rounded-xl py-2 px-1 border border-amber-500/20">
+            <div className="text-amber-400 font-bold font-mono text-xs leading-tight tabular-nums">{spotInvoiced.toLocaleString()}</div>
+            <div className="text-white/40 text-[9px] mt-0.5 leading-none">Invoiced</div>
           </div>
-          <div className="text-center bg-blue-500/10 rounded-xl p-2 border border-blue-500/20">
-            <div className="text-blue-400 font-bold font-mono text-sm">{spotPaid.toLocaleString()}</div>
-            <div className="text-white/30 text-[9px] mt-0.5">Spot Paid</div>
+          <div className="text-center bg-blue-500/10 rounded-xl py-2 px-1 border border-blue-500/20">
+            <div className="text-blue-400 font-bold font-mono text-xs leading-tight tabular-nums">{spotPaid.toLocaleString()}</div>
+            <div className="text-white/40 text-[9px] mt-0.5 leading-none">Spot Paid</div>
           </div>
         </div>
       </div>

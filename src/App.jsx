@@ -470,7 +470,7 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
         </aside>
 
         {/* Main Content Area */}
-        <div className={`flex-1 md:ml-20 flex flex-col min-h-screen px-4 py-10 md:py-16 relative transition-all duration-700 ${isCalendarOpen ? 'blur-[60px] opacity-30 scale-95' : 'blur-0 opacity-100 scale-100'}`}>
+        <div className={`flex-1 md:ml-20 flex flex-col min-h-screen px-4 pt-5 pb-10 md:py-16 relative transition-all duration-700 ${isCalendarOpen ? 'blur-[60px] opacity-30 scale-95' : 'blur-0 opacity-100 scale-100'}`}>
 
           {/* On-Set Studio Black */}
           <div className={`fixed inset-0 bg-black z-0 pointer-none-safeguard transition-opacity duration-1000 ${isOnSetMode ? 'opacity-100' : 'opacity-0'}`} />
@@ -482,11 +482,11 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
 
           <div className={`relative z-10 max-w-4xl mx-auto w-full`}>
             {(!isOnSetMode) && (
-              <header className="mb-12 text-center md:text-left relative">
-                <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60 drop-shadow-sm mb-2 tracking-tight">
+              <header className="mb-6 md:mb-12 text-center md:text-left relative">
+                <h1 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60 drop-shadow-sm mb-0.5 md:mb-2 tracking-tight">
                   Sergiu OS
                 </h1>
-                <p className="text-white/50 text-lg font-medium">Your whole life. At a glance.</p>
+                <p className="hidden md:block text-white/50 text-lg font-medium">Your whole life. At a glance.</p>
               </header>
             )}
 
@@ -518,9 +518,19 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
               </div>
             )}
 
+            {/* MOBILE FINANCE VIEW */}
+            {viewMode === 'finance' && (
+              <div className="md:hidden pb-4">
+                <h2 className="text-2xl font-bold text-white mb-4">Finance</h2>
+                <GlassPanel>
+                  <FinancialPanel />
+                </GlassPanel>
+              </div>
+            )}
+
             {/* DAY VIEW ANCHOR */}
             {(!isOnSetMode || !activeFocusTask) && (
-              <div id="day" className="grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-[80vh]">
+              <div id="day" className={`grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-[80vh] ${viewMode === 'finance' ? 'hidden md:grid' : ''}`}>
 
                 {/* Main Task List */}
                 <div className="lg:col-span-2 space-y-6">
@@ -804,48 +814,57 @@ Reply with EXACTLY ONE short, conversational sentence warning the user, or reply
         )}
       </div>
 
-      {/* Mobile sticky input bar — sits above tab bar */}
-      <div className="md:hidden fixed bottom-[72px] left-0 right-0 z-[59] px-4 pb-2">
-        <form onSubmit={handleAddTodo} className="relative">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Add a task..."
-            className="glass-input w-full pr-14 text-base py-4 shadow-2xl"
-            style={{ fontSize: '16px' }}
-          />
-          <button
-            type="submit"
-            className="absolute right-2 top-2 bottom-2 aspect-square bg-white/15 active:bg-white/30 text-white rounded-xl flex items-center justify-center transition-all border border-white/10"
-          >
-            <Plus size={22} />
-          </button>
-        </form>
-      </div>
+      {/* Mobile sticky input bar — only on Day view */}
+      {viewMode === 'day' && (
+        <div className="md:hidden fixed left-0 right-0 z-[59] px-4 pb-2" style={{ bottom: 'calc(max(60px, 60px + env(safe-area-inset-bottom)))' }}>
+          <form onSubmit={handleAddTodo} className="relative">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Add a task..."
+              className="glass-input w-full pr-14 shadow-2xl"
+              style={{ fontSize: '16px', padding: '14px 56px 14px 16px' }}
+            />
+            <button
+              type="submit"
+              className="absolute right-2 top-2 bottom-2 aspect-square bg-white/15 active:bg-white/30 text-white rounded-xl flex items-center justify-center border border-white/10"
+            >
+              <Plus size={22} />
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Mobile Bottom TabBar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around p-4 pb-6">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around py-3 pb-safe" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
         <button
           onClick={() => { setViewMode('day'); setActiveProjectId(null); }}
-          className={`flex flex-col items-center gap-1 transition-colors ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40 hover:text-white/70'}`}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'day' ? 'text-blue-400' : 'text-white/40'}`}
         >
           <List size={22} />
-          <span className="text-[10px] font-medium tracking-wide">Day</span>
+          <span className="text-[10px] font-medium">Day</span>
         </button>
         <button
           onClick={() => setViewMode('projects')}
-          className={`flex flex-col items-center gap-1 transition-colors ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40 hover:text-white/70'}`}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'projects' ? 'text-purple-400' : 'text-white/40'}`}
         >
           <LayoutGrid size={22} />
-          <span className="text-[10px] font-medium tracking-wide">Capsules</span>
+          <span className="text-[10px] font-medium">Capsules</span>
+        </button>
+        <button
+          onClick={() => setViewMode('finance')}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'finance' ? 'text-emerald-400' : 'text-white/40'}`}
+        >
+          <DollarSign size={22} />
+          <span className="text-[10px] font-medium">Finance</span>
         </button>
         <button
           onClick={() => setViewMode('dashboard')}
-          className={`flex flex-col items-center gap-1 transition-colors ${viewMode === 'dashboard' ? 'text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[60px] ${viewMode === 'dashboard' ? 'text-amber-400' : 'text-white/40'}`}
         >
           <Calendar size={22} />
-          <span className="text-[10px] font-medium tracking-wide">Timeline</span>
+          <span className="text-[10px] font-medium">Timeline</span>
         </button>
       </div>
     </>

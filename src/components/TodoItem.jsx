@@ -125,15 +125,15 @@ const TodoItem = ({
                                 {/* Focus Button */}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onStartFocus(todo); }}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 text-white/50 active:bg-amber-400/20 active:text-amber-400 transition-colors min-h-[32px]"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 text-white/50 active:bg-amber-400/20 active:text-amber-400 transition-colors min-h-[44px]"
                                 >
-                                    <Target size={12} /> Focus
+                                    <Target size={13} /> Focus
                                 </button>
 
-                                {/* Energy toggle — larger tap target */}
+                                {/* Energy toggle */}
                                 <button
                                     onClick={handleEnergyToggle}
-                                    className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${todo.energy === 'high'
+                                    className={`flex items-center justify-center w-11 h-11 rounded-lg transition-all ${todo.energy === 'high'
                                         ? 'bg-red-500/20 text-red-400'
                                         : todo.energy === 'low'
                                             ? 'bg-green-500/20 text-green-400'
@@ -141,13 +141,13 @@ const TodoItem = ({
                                         }`}
                                     title={todo.energy === 'high' ? 'High Energy' : todo.energy === 'low' ? 'Low Energy' : 'Set Energy'}
                                 >
-                                    <div className={`w-2.5 h-2.5 rounded-full ${todo.energy === 'high' ? 'bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : todo.energy === 'low' ? 'bg-green-400' : 'bg-white/20'}`} />
+                                    <div className={`w-3 h-3 rounded-full ${todo.energy === 'high' ? 'bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : todo.energy === 'low' ? 'bg-green-400' : 'bg-white/20'}`} />
                                 </button>
 
                                 {/* Stage Icon Toggle */}
                                 <button
                                     onClick={cycleStage}
-                                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 active:bg-white/20 transition-colors"
+                                    className="flex items-center justify-center w-11 h-11 rounded-lg bg-white/5 active:bg-white/20 transition-colors"
                                     title={`Stage: ${todo.stage || 'Idea'}`}
                                 >
                                     <StageIcon />
