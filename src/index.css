@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-white m-0 min-h-screen font-sans;
+    background: linear-gradient(-45deg, #FF6B6B, #845EC2, #D65DB1, #FF9671);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+    overflow-x: hidden;
+  }
+
+  /* Prevent Safari/Chrome from sticking on invisible z-layers */
+  .pointer-none-safeguard {
+    pointer-events: none !important;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-glass-dark backdrop-blur-liquid border border-glass-darkBorder shadow-glass rounded-[2rem] overflow-hidden;
+    /* Apple-like inner glow/border reflection */
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  }
+
+  .glass-button {
+    @apply bg-glass-light hover:bg-white/50 backdrop-blur-md border border-glass-border shadow-sm rounded-xl transition-all duration-300;
+  }
+
+  .glass-input {
+    @apply bg-black/10 border border-white/20 text-white placeholder:text-white/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/30 backdrop-blur-md transition-all;
+  }
+
+  .glass-pill {
+    @apply px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-md text-sm font-medium shadow-sm transition-all duration-300;
+  }
+}
