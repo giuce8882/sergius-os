@@ -203,6 +203,66 @@ const TOOLS = [
         required: ['title', 'body', 'minutesFromNow']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_task_hour',
+      description: 'Reschedule a task to a specific hour of the day',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'number', description: 'Numeric task ID' },
+          hour:   { type: 'number', description: 'Hour (0-23) to schedule the task, or null to remove time' }
+        },
+        required: ['taskId', 'hour']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_retainer',
+      description: 'Update the monthly amount of an existing retainer client by name',
+      parameters: {
+        type: 'object',
+        properties: {
+          clientName: { type: 'string', description: 'Name of the existing retainer client (e.g. "Dabo", "Ramada")' },
+          amount:     { type: 'number', description: 'New monthly retainer amount in RON' }
+        },
+        required: ['clientName', 'amount']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_retainer_client',
+      description: 'Add a new recurring retainer client to the financial tracker',
+      parameters: {
+        type: 'object',
+        properties: {
+          name:         { type: 'string', description: 'Client name' },
+          amount:       { type: 'number', description: 'Monthly retainer amount in RON' },
+          deliverables: { type: 'string', description: 'What is delivered each month (optional)' }
+        },
+        required: ['name', 'amount']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_invoice',
+      description: 'Remove a spot invoice by client name',
+      parameters: {
+        type: 'object',
+        properties: {
+          clientName: { type: 'string', description: 'Name of the spot client whose invoice to delete' }
+        },
+        required: ['clientName']
+      }
+    }
   }
 ];
 
@@ -218,9 +278,13 @@ const ACTION_LABELS = {
   set_task_energy:        '⚡ energy',
   set_task_stage:         '◈ stage',
   set_task_project:       '↳ moved',
+  set_task_hour:          '🕐 rescheduled',
   add_invoice:            '$ invoice',
   mark_invoice_paid:      '$ paid',
   update_account_balance: '$ balance',
+  update_retainer:        '$ retainer updated',
+  add_retainer_client:    '$ new retainer',
+  delete_invoice:         '$ invoice removed',
   schedule_reminder:      '🔔 reminder'
 };
 
@@ -228,6 +292,7 @@ const ACTION_LABELS = {
 
 const QUICK_PROMPTS_BUSINESS = [
   'Morning briefing',
+  'Just tell me what happened today',
   'What should I tackle first?',
   'How close am I to target?',
   "What's invoiced and pending?",
@@ -236,6 +301,7 @@ const QUICK_PROMPTS_BUSINESS = [
 
 const QUICK_PROMPTS_PERSONAL = [
   'What personal things need attention?',
+  'Just tell me what happened today',
   'Schedule Elio pickup today',
   'Add gym to today',
   'Plan my evening',
@@ -323,7 +389,7 @@ ${invoicesStr}
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-const JarvisAgent = ({ isOpen, onClose, todos, setTodos, financial, setFinancial }) => {
+const JarvisAgent = ({ isOpen, onClose, todos, setTodos, financial, setFinancial, onToolExecuted }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -455,6 +521,48 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos, financial, setFinancial
         return { success: true };
       }
 
+      case 'set_task_hour':
+        setTodos(prev => prev.map(t => t.id === args.taskId ? { ...t, hour: args.hour ?? null } : t));
+        return { success: true };
+
+      case 'update_retainer': {
+        if (!financial || !setFinancial) return { success: false, error: 'Financial state not connected' };
+        setFinancial({
+          ...financial,
+          clients: (financial.clients || []).map(c =>
+            c.name.toLowerCase().includes(args.clientName.toLowerCase()) ? { ...c, amount: args.amount } : c
+          )
+        });
+        return { success: true };
+      }
+
+      case 'add_retainer_client': {
+        if (!financial || !setFinancial) return { success: false, error: 'Financial state not connected' };
+        setFinancial({
+          ...financial,
+          clients: [...(financial.clients || []), {
+            id: args.name.toLowerCase().replace(/\s+/g, '-'),
+            name: args.name,
+            amount: args.amount,
+            type: 'retainer',
+            status: 'active',
+            deliverables: args.deliverables || ''
+          }]
+        });
+        return { success: true };
+      }
+
+      case 'delete_invoice': {
+        if (!financial || !setFinancial) return { success: false, error: 'Financial state not connected' };
+        setFinancial({
+          ...financial,
+          spotClients: (financial.spotClients || []).filter(
+            c => !c.name.toLowerCase().includes(args.clientName.toLowerCase())
+          )
+        });
+        return { success: true };
+      }
+
       default:
         return { success: false, error: 'Unknown tool' };
     }
@@ -504,6 +612,24 @@ const JarvisAgent = ({ isOpen, onClose, todos, setTodos, financial, setFinancial
             tool_call_id: toolCall.id,
             content: JSON.stringify(result)
           });
+        }
+
+        // Fire toast on the main screen
+        if (onToolExecuted && actions.length > 0) {
+          const summary = actions.map(a => {
+            if (a.name === 'bulk_add_tasks') return `added ${a.args?.tasks?.length || ''} tasks`;
+            if (a.name === 'add_task') return `added "${a.args?.text?.slice(0, 28)}${a.args?.text?.length > 28 ? '…' : ''}"` ;
+            if (a.name === 'complete_task') return 'marked task done';
+            if (a.name === 'add_invoice') return `logged invoice: ${a.args?.name} ${a.args?.amount} RON`;
+            if (a.name === 'mark_invoice_paid') return `${a.args?.clientName} marked paid`;
+            if (a.name === 'update_account_balance') return `balance → ${a.args?.balance?.toLocaleString()} RON`;
+            if (a.name === 'add_retainer_client') return `new retainer: ${a.args?.name}`;
+            if (a.name === 'update_retainer') return `${a.args?.clientName} retainer → ${a.args?.amount} RON`;
+            if (a.name === 'set_task_hour') return `task rescheduled to ${a.args?.hour}:00`;
+            if (a.name === 'delete_invoice') return `removed ${a.args?.clientName} invoice`;
+            return ACTION_LABELS[a.name] || a.name;
+          }).join(' · ');
+          onToolExecuted(`✓ Jarvis: ${summary}`);
         }
 
         historyRef.current = [...historyRef.current, ...toolMessages];

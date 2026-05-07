@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import GlassPanel from './components/GlassPanel';
 import TodoItem from './components/TodoItem';
 import StatusPanel from './components/StatusPanel';
@@ -103,6 +103,15 @@ function App() {
 
   // Faux-Native Notification State
   const [notification, setNotification] = useState(null);
+
+  // Jarvis action toast
+  const [jarvisToast, setJarvisToast] = useState(null);
+  const jarvisToastTimeout = useRef(null);
+  const handleJarvisAction = (message) => {
+    clearTimeout(jarvisToastTimeout.current);
+    setJarvisToast(message);
+    jarvisToastTimeout.current = setTimeout(() => setJarvisToast(null), 4000);
+  };
 
   // Timer Effect
   useEffect(() => {
@@ -748,6 +757,7 @@ function App() {
         setTodos={setTodos}
         financial={financial}
         setFinancial={setFinancial}
+        onToolExecuted={handleJarvisAction}
       />
 
       {/* Voice Orb */}
@@ -773,6 +783,18 @@ function App() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Jarvis Action Toast */}
+      <div
+        className={`fixed bottom-[170px] md:bottom-8 left-1/2 -translate-x-1/2 z-[110] transition-all duration-400 ${
+          jarvisToast ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-95 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center gap-2.5 bg-violet-950/90 backdrop-blur-2xl border border-violet-500/30 rounded-2xl px-4 py-2.5 shadow-[0_0_30px_rgba(139,92,246,0.25)] whitespace-nowrap">
+          <div className="w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.9)] flex-shrink-0 animate-pulse" />
+          <span className="text-violet-100 text-sm font-medium">{jarvisToast}</span>
+        </div>
       </div>
 
       {/* Mobile sticky input bar — only on Day view */}
